@@ -10,6 +10,11 @@
 -----------------------------------------------------------------------
 -- History
 -- 2024/03/11:  Improving value descriptions for exec restatement reason
+--              Negotiate and Establish messages are now fully decoded
+--              Added credentials decode function
+--              Added client IP decode function
+--              Added client app name decode function
+--              Added client app version decode function
 -- 2024/03/04:  Removing memo field (temporary)
 --              Removing desk id field (temporary)
 --              Deleting security exchange field, this field does not have a real offset
