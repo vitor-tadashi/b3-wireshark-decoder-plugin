@@ -8,9 +8,9 @@ This Wireshark plugin allows you to decode SBE (Simple Binary Encoding) messages
 - Provides detailed information about each message field.
 
 ## Installation
-1. Download the plugin `b3.entrypoint.sbe.<version>.wireshark.plugin.lua`
+1. Download the plugin `plugins/<version>/b3.entrypoint.sbe.wireshark.plugin.lua`
 2. Copy the plugin binary to the Wireshark plugins directory.
-    - On Windows: `<Wireshark Install Directory>\plugins`. If portable `<Wireshark Install Directory>\data\plugins`
+    - On Windows: `<Wireshark Install Directory>/plugins`. If portable `<Wireshark Install Directory>/data/plugins`
     - On macOS: `/Applications/Wireshark.app/Contents/PlugIns`.
     - On Linux: `/usr/lib/wireshark/plugins`.
 3. Launch Wireshark and verify that the plugin is loaded. You should see the "B3.ENTRYPOINT.SBE" 
