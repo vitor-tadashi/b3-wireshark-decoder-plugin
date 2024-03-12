@@ -1,5 +1,5 @@
 -----------------------------------------------------------------------
--- Lua Script Wireshark Dissector - BETA version (stable version)
+-- Lua Script Wireshark Dissector - BETA version 0.3
 -----------------------------------------------------------------------
 -- Lua dissectors are an easily edited and modified cross platform dissection solution.
 -- Feel free to modify. Enjoy.
@@ -9,16 +9,17 @@
 --   Semantic version: 8.0.0
 -----------------------------------------------------------------------
 -- History
--- 2024/03/11:  Improving value descriptions for exec restatement reason
---              Negotiate and Establish messages are now fully decoded
---              Added credentials decode function
---              Added client IP decode function
---              Added client app name decode function
---              Added client app version decode function
--- 2024/03/04:  Removing memo field (temporary)
---              Removing desk id field (temporary)
---              Deleting security exchange field, this field does not have a real offset
---              Fixing fixed offset fields
+-- 2024/03/12:  Fix outbound business header size
+--              Add desk ID dissector
+--              Add memo dissector
+--              Add text dissector
+-- 2024/03/11:  Add credentials dissector
+--              Add client IP dissector
+--              Add client app name dissector
+--              Add client app version dissector
+--              Add investor ID dissector
+--              Fix padding
+-- 2024/03/04:  MVP - only decoding fixed fields
 
 -----------------------------------------------------------------------
 
@@ -839,13 +840,7 @@ end
 
 -- Calculate size of: Text
 b3_entrypoint_sbe_size_of.text = function(buffer, offset)
-  local index = 0
-
-  index = index + b3_entrypoint_sbe_size_of.length
-
-  index = index + b3_entrypoint_sbe_size_of.var_data_char
-
-  return index
+  return b3_entrypoint_sbe_size_of.variable_data(buffer, offset)
 end
 
 -- Display: Text
@@ -1226,6 +1221,15 @@ b3_entrypoint_sbe_display.mass_cancel_restatement_reason = function(value)
   if value == 209 then
     return "Exec restatement reason: CANCEL_ON_MIDPOINT_BROKER_ONLY_REMOVAL (NOT VALID FOR ORDER MASS ACTION REQUEST)"
   end
+  if value == 210 then
+    return "Exec restatement reason: CANCEL_REMAINING_FROM_SWEEP_CROSS (NOT VALID FOR ORDER MASS ACTION REQUEST)"
+  end
+  if value == 211 then
+    return "Exec restatement reason: MASS_CANCEL_ON_BEHALF (NOT VALID FOR ORDER MASS ACTION REQUEST)"
+  end
+  if value == 212 then
+    return "Exec restatement reason: MASS_CANCEL_ON_BEHALF_DUE_TO_OPERATIONAL_ERROR_EFFECTIVE (NOT VALID FOR ORDER MASS ACTION REQUEST)"
+  end
   if value == 0 then
     return "Exec restatement reason: NULL"
   end
@@ -1433,7 +1437,7 @@ b3_entrypoint_sbe_dissect.mass_action_type = function(buffer, offset, packet, pa
 end
 
 -- Size: Outbound Business Header
-b3_entrypoint_sbe_size_of.outbound_business_header = 1
+b3_entrypoint_sbe_size_of.outbound_business_header = 18
 
 -- Display: Inbound Business Header
 b3_entrypoint_sbe_display.outbound_business_header = function(buffer, packet, parent)
@@ -1503,6 +1507,8 @@ b3_entrypoint_sbe_size_of.order_mass_action_report_message = function(buffer, of
 
   index = index + b3_entrypoint_sbe_size_of.investor_id
 
+  index = index + b3_entrypoint_sbe_size_of.text(buffer, offset + index)
+
   return index
 end
 
@@ -1559,6 +1565,9 @@ b3_entrypoint_sbe_dissect.order_mass_action_report_message_fields = function(buf
 
   -- Investor ID: 2 Byte (Prefix) + 2 (Padding) + 6 Byte (Document)
   index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
+
+  -- Text: 1 Byte (Length) + N Bytes
+  index, text = b3_entrypoint_sbe_dissect.text(buffer, index, packet, parent)
 
   return index
 end
@@ -5420,11 +5429,18 @@ b3_entrypoint_sbe_size_of.business_message_reject = function(buffer, offset)
 
   index = index + b3_entrypoint_sbe_size_of.ref_msg_type
 
+  -- Padding 1 Byte
+  index = index + 1
+
   index = index + b3_entrypoint_sbe_size_of.ref_seq_num
 
   index = index + b3_entrypoint_sbe_size_of.business_reject_ref_id
 
   index = index + b3_entrypoint_sbe_size_of.business_reject_reason
+
+  index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
+
+  index = index + b3_entrypoint_sbe_size_of.text(buffer, offset + index)
 
   return index
 end
@@ -5444,6 +5460,9 @@ b3_entrypoint_sbe_dissect.business_message_reject_fields = function(buffer, offs
   -- Ref Msg Type: 1 Byte Unsigned Fixed Width Integer Enum with 39 values
   index, ref_msg_type = b3_entrypoint_sbe_dissect.ref_msg_type(buffer, index, packet, parent)
 
+  -- Padding 1 Byte
+  index = index + 1
+
   -- Ref Seq Num: 4 Byte Unsigned Fixed Width Integer
   index, ref_seq_num = b3_entrypoint_sbe_dissect.ref_seq_num(buffer, index, packet, parent)
 
@@ -5452,6 +5471,12 @@ b3_entrypoint_sbe_dissect.business_message_reject_fields = function(buffer, offs
 
   -- Business Reject Reason: 4 Byte Unsigned Fixed Width Integer
   index, business_reject_reason = b3_entrypoint_sbe_dissect.business_reject_reason(buffer, index, packet, parent)
+
+  -- Memo: 1 Byte (Length) + N Bytes
+  index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
+
+  -- Text: 1 Byte (Length) + N Bytes
+  index, text = b3_entrypoint_sbe_dissect.text(buffer, index, packet, parent)
 
 
   return index
@@ -6337,6 +6362,12 @@ b3_entrypoint_sbe_size_of.execution_report_reject_message = function(buffer, off
 
   index = index + b3_entrypoint_sbe_size_of.crossed_indicator
 
+  index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
+
+  index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
+
+  index = index + b3_entrypoint_sbe_size_of.text(buffer, offset + index)
+
   return index
 end
 
@@ -6415,6 +6446,14 @@ b3_entrypoint_sbe_dissect.execution_report_reject_message_fields = function(buff
   -- Crossed Indicator: 2 Byte Unsigned Fixed Width Integer Enum with 4 values
   index, crossed_indicator = b3_entrypoint_sbe_dissect.crossed_indicator(buffer, index, packet, parent)
 
+  -- Desk ID: 1 Byte (Length) + N Bytes
+  index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
+
+  -- Memo: 1 Byte (Length) + N Bytes
+  index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
+
+  -- Text: 1 Byte (Length) + N Bytes
+  index, text = b3_entrypoint_sbe_dissect.text(buffer, index, packet, parent)
 
   return index
 end
@@ -6627,6 +6666,10 @@ b3_entrypoint_sbe_size_of.execution_report_trade_message = function(buffer, offs
 
   index = index + b3_entrypoint_sbe_size_of.order_qty
 
+  index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
+
+  index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
+
   return index
 end
 
@@ -6723,6 +6766,12 @@ b3_entrypoint_sbe_dissect.execution_report_trade_message_fields = function(buffe
   -- Order Qty: 8 Byte Unsigned Fixed Width Integer
   index, order_qty = b3_entrypoint_sbe_dissect.order_qty(buffer, index, packet, parent)
 
+  -- Desk ID: 1 Byte (Length) + N Bytes
+  index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
+
+  -- Memo: 1 Byte (Length) + N Bytes
+  index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
+
 
   return index
 end
@@ -6815,6 +6864,15 @@ b3_entrypoint_sbe_display.exec_restatement_reason = function(value)
   end
   if value == 209 then
     return "Exec restatement reason: CANCEL_ON_MIDPOINT_BROKER_ONLY_REMOVAL"
+  end
+  if value == 210 then
+    return "Exec restatement reason: CANCEL_REMAINING_FROM_SWEEP_CROSS"
+  end
+  if value == 211 then
+    return "Exec restatement reason: MASS_CANCEL_ON_BEHALF"
+  end
+  if value == 212 then
+    return "Exec restatement reason: MASS_CANCEL_ON_BEHALF_DUE_TO_OPERATIONAL_ERROR_EFFECTIVE"
   end
   if value == 0 then
     return "Exec restatement reason: NULL"
@@ -6911,9 +6969,6 @@ b3_entrypoint_sbe_size_of.execution_report_cancel_message = function(buffer, off
 
   index = index + b3_entrypoint_sbe_size_of.transact_time
 
-  -- Padding
-  index = index + 4
-
   index = index + b3_entrypoint_sbe_size_of.market_segment_received_time
 
   index = index + b3_entrypoint_sbe_size_of.order_id
@@ -6925,6 +6980,9 @@ b3_entrypoint_sbe_size_of.execution_report_cancel_message = function(buffer, off
   index = index + b3_entrypoint_sbe_size_of.working_indicator
 
   index = index + b3_entrypoint_sbe_size_of.exec_restatement_reason
+
+  -- Padding 4 Byte
+  index = index + 4
 
   index = index + b3_entrypoint_sbe_size_of.mass_action_report_id_optional
 
@@ -6943,6 +7001,10 @@ b3_entrypoint_sbe_size_of.execution_report_cancel_message = function(buffer, off
   index = index + b3_entrypoint_sbe_size_of.min_qty
 
   index = index + b3_entrypoint_sbe_size_of.max_floor
+
+  index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
+
+  index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
 
   return index
 end
@@ -7033,6 +7095,12 @@ b3_entrypoint_sbe_dissect.execution_report_cancel_message_fields = function(buff
 
   -- Max Floor: 8 Byte Unsigned Fixed Width Integer
   index, max_floor = b3_entrypoint_sbe_dissect.max_floor(buffer, index, packet, parent)
+
+  -- Desk ID: 1 Byte (Length) + N Bytes
+  index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
+
+  -- Memo: 1 Byte (Length) + N Bytes
+  index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
 
   return index
 end
@@ -7142,6 +7210,10 @@ b3_entrypoint_sbe_size_of.execution_report_modify_message = function(buffer, off
 
   index = index + b3_entrypoint_sbe_size_of.max_floor
 
+  index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
+
+  index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
+
   return index
 end
 
@@ -7232,6 +7304,12 @@ b3_entrypoint_sbe_dissect.execution_report_modify_message_fields = function(buff
   -- Max Floor: 8 Byte Unsigned Fixed Width Integer
   index, max_floor = b3_entrypoint_sbe_dissect.max_floor(buffer, index, packet, parent)
 
+  -- Desk ID: 1 Byte (Length) + N Bytes
+  index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
+
+  -- Memo: 1 Byte (Length) + N Bytes
+  index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
+
   return index
 end
 
@@ -7299,6 +7377,10 @@ b3_entrypoint_sbe_size_of.execution_report_new_message = function(buffer, offset
   index = index + b3_entrypoint_sbe_size_of.max_floor
 
   index = index + b3_entrypoint_sbe_size_of.crossid_optional
+
+  index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
+
+  index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
 
   return index
 end
@@ -7384,6 +7466,12 @@ b3_entrypoint_sbe_dissect.execution_report_new_message_fields = function(buffer,
   -- CrossId Optional: 8 Byte Unsigned Fixed Width Integer
   index, crossid_optional = b3_entrypoint_sbe_dissect.crossid_optional(buffer, index, packet, parent)
 
+  -- Desk ID: 1 Byte (Length) + N Bytes
+  index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
+
+  -- Memo: 1 Byte (Length) + N Bytes
+  index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
+
 
   return index
 end
@@ -7463,6 +7551,9 @@ b3_entrypoint_sbe_size_of.new_order_cross_message = function(buffer, offset)
 
   index = index + b3_entrypoint_sbe_size_of.inbound_business_header
 
+  -- Padding 2 Byte
+  index = index + 2
+
   index = index + b3_entrypoint_sbe_size_of.crossid
 
   index = index + b3_entrypoint_sbe_size_of.sender_location
@@ -7496,6 +7587,9 @@ b3_entrypoint_sbe_dissect.new_order_cross_message_fields = function(buffer, offs
 
   -- Inbound Business Header: 1 Byte Ascii String
   index, inbound_business_header = b3_entrypoint_sbe_dissect.inbound_business_header(buffer, index, packet, parent)
+
+  -- Padding 2 Byte
+  index = index + 2
 
   -- CrossId: 8 Byte Unsigned Fixed Width Integer
   index, crossid = b3_entrypoint_sbe_dissect.crossid(buffer, index, packet, parent)
@@ -7597,6 +7691,15 @@ b3_entrypoint_sbe_display.single_cancel_restatement_reason = function(value)
   if value == 209 then
     return "Exec restatement reason: CANCEL_ON_MIDPOINT_BROKER_ONLY_REMOVAL (NOT VALID FOR ORDER CANCEL REQUEST)"
   end
+  if value == 210 then
+    return "Exec restatement reason: CANCEL_REMAINING_FROM_SWEEP_CROSS (NOT VALID FOR ORDER CANCEL REQUEST)"
+  end
+  if value == 211 then
+    return "Exec restatement reason: MASS_CANCEL_ON_BEHALF (NOT VALID FOR ORDER CANCEL REQUEST)"
+  end
+  if value == 212 then
+    return "Exec restatement reason: MASS_CANCEL_ON_BEHALF_DUE_TO_OPERATIONAL_ERROR_EFFECTIVE (NOT VALID FOR ORDER CANCEL REQUEST)"
+  end
   if value == 0 then
     return "Exec restatement reason: NULL"
   end
@@ -7646,6 +7749,10 @@ b3_entrypoint_sbe_size_of.order_cancel_request_message = function(buffer, offset
 
   index = index + b3_entrypoint_sbe_size_of.executing_trader_optional
 
+  index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
+
+  index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
+
   return index
 end
 
@@ -7693,6 +7800,12 @@ b3_entrypoint_sbe_dissect.order_cancel_request_message_fields = function(buffer,
 
   -- Executing Trader Optional: 5 Byte Ascii String
   index, executing_trader_optional = b3_entrypoint_sbe_dissect.executing_trader_optional(buffer, index, packet, parent)
+
+  -- Desk ID: 1 Byte (Length) + N Bytes
+  index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
+
+  -- Memo: 1 Byte (Length) + N Bytes
+  index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
 
 
   return index
@@ -8025,6 +8138,10 @@ b3_entrypoint_sbe_size_of.order_cancel_replace_request_message = function(buffer
 
   index = index + b3_entrypoint_sbe_size_of.investor_id
 
+  index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
+
+  index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
+
   return index
 end
 
@@ -8115,6 +8232,11 @@ b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields = function
   -- Investor ID: 2 Byte (Prefix) + 2 (Padding) + 6 Byte (Document)
   index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
 
+  -- Memo: 1 Byte (Length) + N Bytes
+  index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
+
+  -- Memo: 1 Byte (Length) + N Bytes
+  index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
 
   return index
 end
@@ -8179,6 +8301,10 @@ b3_entrypoint_sbe_size_of.new_order_single_message = function(buffer, offset)
   index = index + b3_entrypoint_sbe_size_of.custodian_info(buffer, offset + index)
 
   index = index + b3_entrypoint_sbe_size_of.investor_id
+
+  index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
+
+  index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
 
   return index
 end
@@ -8257,6 +8383,12 @@ b3_entrypoint_sbe_dissect.new_order_single_message_fields = function(buffer, off
 
   -- Investor ID: 2 Byte (Prefix) + 2 (Padding) + 6 Byte (Document)
   index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
+
+  -- Desk ID: 1 Byte (Length) + N Bytes
+  index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
+
+  -- Memo: 1 Byte (Length) + N Bytes
+  index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
 
   return index
 end
@@ -8396,6 +8528,8 @@ b3_entrypoint_sbe_size_of.simple_modify_order_message = function(buffer, offset)
 
   index = index + b3_entrypoint_sbe_size_of.investor_id
 
+  index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
+
   return index
 end
 
@@ -8462,6 +8596,9 @@ b3_entrypoint_sbe_dissect.simple_modify_order_message_fields = function(buffer, 
   -- Investor ID: 2 Byte (Prefix) + 2 (Padding) + 6 Byte (Document)
   index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
 
+  -- Memo: 1 Byte (Length) + N Bytes
+  index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
+
   return index
 end
 
@@ -8513,6 +8650,8 @@ b3_entrypoint_sbe_size_of.simple_new_order_message = function(buffer, offset)
   index = index + b3_entrypoint_sbe_size_of.price_optional
 
   index = index + b3_entrypoint_sbe_size_of.investor_id
+
+  index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
 
   return index
 end
@@ -8573,6 +8712,9 @@ b3_entrypoint_sbe_dissect.simple_new_order_message_fields = function(buffer, off
 
   -- Investor ID: 2 Byte (Prefix) + 2 (Padding) + 6 Byte (Document)
   index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
+
+  -- Memo: 1 Byte (Length) + N Bytes
+  index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
 
   return index
 end
@@ -9313,6 +9455,9 @@ b3_entrypoint_sbe_size_of.establish_reject_message = function(buffer, offset)
 
   index = index + b3_entrypoint_sbe_size_of.establishment_reject_code
 
+  -- Padding 1 Byte
+  index = index + 1
+
   index = index + b3_entrypoint_sbe_size_of.last_incoming_seq_no_optional
 
   return index
@@ -9338,6 +9483,9 @@ b3_entrypoint_sbe_dissect.establish_reject_message_fields = function(buffer, off
 
   -- Establishment reject code: 1 Byte Unsigned Fixed Width Integer Enum with 15 values
   index, establishment_reject_code = b3_entrypoint_sbe_dissect.establishment_reject_code(buffer, index, packet, parent)
+
+  -- Padding 1 Byte
+  index = index + 1
 
   -- Last Incoming Seq No Optional: 4 Byte Unsigned Fixed Width Integer
   index, last_incoming_seq_no_optional = b3_entrypoint_sbe_dissect.last_incoming_seq_no_optional(buffer, index, packet, parent)
@@ -9463,7 +9611,23 @@ end
 
 -- Calculate size of variable data
 b3_entrypoint_sbe_size_of.variable_data = function(buffer, offset)
+  local end_of_payload = buffer:len()
+
+  if end_of_payload < offset + 1 then
+    return 0
+  end
+
   return buffer(offset, 1):le_uint() + 1
+end
+
+-- Calculate size of: Memo
+b3_entrypoint_sbe_size_of.memo = function(buffer, offset)
+  return b3_entrypoint_sbe_size_of.variable_data(buffer, offset)
+end
+
+-- Calculate size of: Memo
+b3_entrypoint_sbe_size_of.desk_id = function(buffer, offset)
+  return b3_entrypoint_sbe_size_of.variable_data(buffer, offset)
 end
 
 -- Calculate size of: Credentials
@@ -9501,6 +9665,70 @@ b3_entrypoint_sbe_dissect.credentials = function(buffer, offset, packet, parent)
 
   return b3_entrypoint_sbe_dissect.credentials_fields(buffer, offset, packet, parent)
 end
+
+-- Display: Memo
+b3_entrypoint_sbe_display.memo = function(buffer, offset, size, packet, parent)
+  return ""
+end
+
+-- Display: Memo
+b3_entrypoint_sbe_display.desk_id = function(buffer, offset, size, packet, parent)
+  return ""
+end
+
+-- Dissect Fields: Memo
+b3_entrypoint_sbe_dissect.memo_fields = function(buffer, offset, packet, parent)
+  local index = offset
+
+  -- Length: 1 Byte Unsigned Fixed Width Integer
+  index, length = b3_entrypoint_sbe_dissect.length(buffer, index, packet, parent)
+
+  -- Var Data char
+  index, var_data_char = b3_entrypoint_sbe_dissect.var_data_char(buffer, index, packet, parent, length)
+
+  return index
+end
+
+-- Dissect Fields: Memo
+b3_entrypoint_sbe_dissect.desk_id_fields = function(buffer, offset, packet, parent)
+  local index = offset
+
+  -- Length: 1 Byte Unsigned Fixed Width Integer
+  index, length = b3_entrypoint_sbe_dissect.length(buffer, index, packet, parent)
+
+  -- Var Data char
+  index, var_data_char = b3_entrypoint_sbe_dissect.var_data_char(buffer, index, packet, parent, length)
+
+  return index
+end
+
+-- Dissect: Desk ID
+b3_entrypoint_sbe_dissect.desk_id = function(buffer, offset, packet, parent)
+  -- Optionally add struct element to protocol tree
+  if show.desk_id then
+    local length = b3_entrypoint_sbe_size_of.desk_id(buffer, offset)
+    local range = buffer(offset, length)
+    local display = b3_entrypoint_sbe_display.desk_id(buffer, packet, parent)
+    parent = parent:add(b3_entrypoint_sbe.fields.desk_id, range, display)
+  end
+
+  return b3_entrypoint_sbe_dissect.desk_id_fields(buffer, offset, packet, parent)
+end
+
+
+-- Dissect: Memo
+b3_entrypoint_sbe_dissect.memo = function(buffer, offset, packet, parent)
+  -- Optionally add struct element to protocol tree
+  if show.memo then
+    local length = b3_entrypoint_sbe_size_of.memo(buffer, offset)
+    local range = buffer(offset, length)
+    local display = b3_entrypoint_sbe_display.memo(buffer, packet, parent)
+    parent = parent:add(b3_entrypoint_sbe.fields.memo, range, display)
+  end
+
+  return b3_entrypoint_sbe_dissect.memo_fields(buffer, offset, packet, parent)
+end
+
 
 -- Size: Cod Timeout Window
 b3_entrypoint_sbe_size_of.cod_timeout_window = 8
@@ -9727,6 +9955,9 @@ b3_entrypoint_sbe_size_of.negotiate_reject_message = function(buffer, offset)
 
   index = index + b3_entrypoint_sbe_size_of.negotiation_reject_code
 
+  -- Padding 3 Bytes
+  index = index + 3
+
   index = index + b3_entrypoint_sbe_size_of.current_session_ver_id
 
   return index
@@ -9755,6 +9986,9 @@ b3_entrypoint_sbe_dissect.negotiate_reject_message_fields = function(buffer, off
 
   -- Negotiation reject code: 1 Byte Unsigned Fixed Width Integer Enum with 13 values
   index, negotiation_reject_code = b3_entrypoint_sbe_dissect.negotiation_reject_code(buffer, index, packet, parent)
+
+  -- Padding 3 Bytes
+  index = index + 3
 
   -- Current Session Ver ID: 8 Byte Unsigned Fixed Width Integer
   index, current_session_ver_id = b3_entrypoint_sbe_dissect.current_session_ver_id(buffer, index, packet, parent)
