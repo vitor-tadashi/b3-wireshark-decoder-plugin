@@ -10,6 +10,11 @@
 -----------------------------------------------------------------------
 -- History
 -- 2024/03/11:  Improving value descriptions for exec restatement reason
+--              Negotiate and Establish messages are now fully decoded
+--              Added credentials decode function
+--              Added client IP decode function
+--              Added client app name decode function
+--              Added client app version decode function
 -- 2024/03/04:  Removing memo field (temporary)
 --              Removing desk id field (temporary)
 --              Deleting security exchange field, this field does not have a real offset
@@ -95,12 +100,12 @@ b3_entrypoint_sbe.fields.business_reject_reason = ProtoField.new("Business Rejec
 b3_entrypoint_sbe.fields.business_reject_ref_id = ProtoField.new("Business Reject Ref ID", "b3.entrypoint.sbe.business_reject_ref_id", ftypes.UINT64)
 b3_entrypoint_sbe.fields.cancel_on_disconnect_type = ProtoField.new("Cancel On Disconnect Type", "b3.entrypoint.sbe.cancel_on_disconnect_type", ftypes.UINT8)
 b3_entrypoint_sbe.fields.clearing_business_date = ProtoField.new("Clearing Business Date", "b3.entrypoint.sbe.clearing_business_date", ftypes.UINT16)
-b3_entrypoint_sbe.fields.client_app_name = ProtoField.new("Client App Name", "b3.entrypoint.sbe.client_app_name", ftypes.STRING)
-b3_entrypoint_sbe.fields.client_app_version = ProtoField.new("Client App Version", "b3.entrypoint.sbe.client_app_version", ftypes.STRING)
-b3_entrypoint_sbe.fields.client_ip = ProtoField.new("Client Ip", "b3.entrypoint.sbe.client_ip", ftypes.STRING)
+b3_entrypoint_sbe.fields.client_app_name = ProtoField.new("Client app name", "b3.entrypoint.sbe.client_app_name", ftypes.STRING)
+b3_entrypoint_sbe.fields.client_app_version = ProtoField.new("Client app version", "b3.entrypoint.sbe.client_app_version", ftypes.STRING)
+b3_entrypoint_sbe.fields.client_ip = ProtoField.new("Client IP", "b3.entrypoint.sbe.client_ip", ftypes.STRING)
 b3_entrypoint_sbe.fields.clordid = ProtoField.new("ClOrdId", "b3.entrypoint.sbe.clordid", ftypes.UINT64)
 b3_entrypoint_sbe.fields.clordid_optional = ProtoField.new("ClOrdId Optional", "b3.entrypoint.sbe.clordid_optional", ftypes.UINT64)
-b3_entrypoint_sbe.fields.cod_timeout_window = ProtoField.new("Cod Timeout Window", "b3.entrypoint.sbe.cod_timeout_window", ftypes.UINT64)
+b3_entrypoint_sbe.fields.cod_timeout_window = ProtoField.new("COD Timeout Window", "b3.entrypoint.sbe.cod_timeout_window", ftypes.UINT64)
 b3_entrypoint_sbe.fields.contra_broker = ProtoField.new("Contra Broker", "b3.entrypoint.sbe.contra_broker", ftypes.UINT32)
 b3_entrypoint_sbe.fields.contrary_instruction_indicator = ProtoField.new("Contrary Instruction Indicator", "b3.entrypoint.sbe.contrary_instruction_indicator", ftypes.UINT8)
 b3_entrypoint_sbe.fields.count = ProtoField.new("Count", "b3.entrypoint.sbe.count", ftypes.UINT32)
@@ -157,6 +162,7 @@ b3_entrypoint_sbe.fields.leg_security_exchange = ProtoField.new("Leg Security Ex
 b3_entrypoint_sbe.fields.leg_side = ProtoField.new("Leg Side", "b3.entrypoint.sbe.leg_side", ftypes.STRING)
 b3_entrypoint_sbe.fields.leg_symbol = ProtoField.new("Leg Symbol", "b3.entrypoint.sbe.leg_symbol", ftypes.STRING)
 b3_entrypoint_sbe.fields.length = ProtoField.new("Length", "b3.entrypoint.sbe.length", ftypes.UINT8)
+b3_entrypoint_sbe.fields.var_data_char = ProtoField.new("Variable Data", "b3.entrypoint.sbe.var_data_char", ftypes.STRING)
 b3_entrypoint_sbe.fields.long_qty = ProtoField.new("Long Qty", "b3.entrypoint.sbe.long_qty", ftypes.UINT64)
 b3_entrypoint_sbe.fields.long_qty_optional = ProtoField.new("Long Qty Optional", "b3.entrypoint.sbe.long_qty_optional", ftypes.UINT64)
 b3_entrypoint_sbe.fields.market_segment_received_time = ProtoField.new("Market Segment Received Time", "b3.entrypoint.sbe.market_segment_received_time", ftypes.UINT64)
@@ -878,6 +884,10 @@ b3_entrypoint_sbe_size_of.document = 4
 
 -- Display: Document
 b3_entrypoint_sbe_display.document = function(value)
+  if self_trade_prevention_instruction == nil then
+    return "Document: "..value
+  end
+
   if self_trade_prevention_instruction > 0 and value == 0 then
     return "Document: INVALID("..value..") (required when self-trade prevention is not none)"
   end
@@ -918,6 +928,10 @@ b3_entrypoint_sbe_size_of.prefix = 2
 
 -- Display: Prefix
 b3_entrypoint_sbe_display.prefix = function(value)
+  if self_trade_prevention_instruction == nil then
+    return "Prefix: "..value
+  end
+
   if self_trade_prevention_instruction > 0 and value == 0 then
     return "Prefix: INVALID("..value..") (required when self-trade prevention is not none)"
   end
@@ -1100,6 +1114,10 @@ end
 
 -- Dissect: Asset
 b3_entrypoint_sbe_dissect.var_data_char = function(buffer, offset, packet, parent, length)
+  if length == 0 then
+    return  offset + length, ""
+  end
+
   local range = buffer(offset, length)
 
   -- parse last octet
@@ -1113,7 +1131,7 @@ b3_entrypoint_sbe_dissect.var_data_char = function(buffer, offset, packet, paren
     value = range:string()
   end
 
-  parent:add(b3_entrypoint_sbe.fields.var_data_char, range, value, value)
+  parent:add(b3_entrypoint_sbe.fields.var_data_char, range, value, "Value: "..value)
 
   return offset + length, value
 end
@@ -9365,7 +9383,7 @@ b3_entrypoint_sbe_size_of.keep_alive_interval = 8
 
 -- Display: Keep Alive Interval
 b3_entrypoint_sbe_display.keep_alive_interval = function(value)
-  return "Keep Alive Interval: "..value
+  return "Keep alive interval (ms): "..value
 end
 
 -- Dissect: Keep Alive Interval
@@ -9442,15 +9460,15 @@ b3_entrypoint_sbe_dissect.establish_ack_message = function(buffer, offset, packe
   return b3_entrypoint_sbe_dissect.establish_ack_message_fields(buffer, offset, packet, parent)
 end
 
+
+-- Calculate size of variable data
+b3_entrypoint_sbe_size_of.variable_data = function(buffer, offset)
+  return buffer(offset, 1):le_uint() + 1
+end
+
 -- Calculate size of: Credentials
 b3_entrypoint_sbe_size_of.credentials = function(buffer, offset)
-  local index = 0
-
-  index = index + b3_entrypoint_sbe_size_of.length
-
-  index = index + b3_entrypoint_sbe_size_of.var_data_char
-
-  return index
+  return b3_entrypoint_sbe_size_of.variable_data(buffer, offset)
 end
 
 -- Display: Credentials
@@ -9489,7 +9507,7 @@ b3_entrypoint_sbe_size_of.cod_timeout_window = 8
 
 -- Display: Cod Timeout Window
 b3_entrypoint_sbe_display.cod_timeout_window = function(value)
-  return "Cod Timeout Window: "..value
+  return "Cancel on disconnect timeout window (ms): "..value
 end
 
 -- Dissect: Cod Timeout Window
@@ -9510,19 +9528,19 @@ b3_entrypoint_sbe_size_of.cancel_on_disconnect_type = 1
 -- Display: Cancel On Disconnect Type
 b3_entrypoint_sbe_display.cancel_on_disconnect_type = function(value)
   if value == 0 then
-    return "Cancel On Disconnect Type: Donotcancelondisconnectorterminate (0)"
+    return "Cancel on disconnect type: DO_NOT_CANCEL_ON_DISCONNECT_OR_TERMINATE"
   end
   if value == 1 then
-    return "Cancel On Disconnect Type: Cancelondisconnectonly (1)"
+    return "Cancel on disconnect type: CANCEL_ON_DISCONNECT_ONLY"
   end
   if value == 2 then
-    return "Cancel On Disconnect Type: Cancelonterminateonly (2)"
+    return "Cancel on disconnect type: CANCEL_ON_TERMINATE_ONLY"
   end
   if value == 3 then
-    return "Cancel On Disconnect Type: Cancelondisconnectorterminate (3)"
+    return "Cancel on disconnect type: CANCEL_ON_DISCONNECT_OR_TERMINATE"
   end
 
-  return "Cancel On Disconnect Type: UNKNOWN("..value..")"
+  return "Cancel on disconnect type: UNKNOWN("..value..")"
 end
 
 -- Dissect: Cancel On Disconnect Type
@@ -9552,6 +9570,9 @@ b3_entrypoint_sbe_size_of.establish_message = function(buffer, offset)
   index = index + b3_entrypoint_sbe_size_of.next_seq_no
 
   index = index + b3_entrypoint_sbe_size_of.cancel_on_disconnect_type
+
+  -- Padding 1 Byte
+  index = index + 1
 
   index = index + b3_entrypoint_sbe_size_of.cod_timeout_window
 
@@ -9586,6 +9607,9 @@ b3_entrypoint_sbe_dissect.establish_message_fields = function(buffer, offset, pa
 
   -- Cancel On Disconnect Type: 1 Byte Unsigned Fixed Width Integer Enum with 4 values
   index, cancel_on_disconnect_type = b3_entrypoint_sbe_dissect.cancel_on_disconnect_type(buffer, index, packet, parent)
+
+  -- Padding 1 Byte
+  index = index + 1
 
   -- Cod Timeout Window: 8 Byte Unsigned Fixed Width Integer
   index, cod_timeout_window = b3_entrypoint_sbe_dissect.cod_timeout_window(buffer, index, packet, parent)
@@ -9825,13 +9849,7 @@ end
 
 -- Calculate size of: Client App Version
 b3_entrypoint_sbe_size_of.client_app_version = function(buffer, offset)
-  local index = 0
-
-  index = index + b3_entrypoint_sbe_size_of.length
-
-  index = index + b3_entrypoint_sbe_size_of.var_data_char
-
-  return index
+  return b3_entrypoint_sbe_size_of.variable_data(buffer, offset)
 end
 
 -- Display: Client App Version
@@ -9867,13 +9885,7 @@ end
 
 -- Calculate size of: Client App Name
 b3_entrypoint_sbe_size_of.client_app_name = function(buffer, offset)
-  local index = 0
-
-  index = index + b3_entrypoint_sbe_size_of.length
-
-  index = index + b3_entrypoint_sbe_size_of.var_data_char
-
-  return index
+  return b3_entrypoint_sbe_size_of.variable_data(buffer, offset)
 end
 
 -- Display: Client App Name
@@ -9909,13 +9921,7 @@ end
 
 -- Calculate size of: Client Ip
 b3_entrypoint_sbe_size_of.client_ip = function(buffer, offset)
-  local index = 0
-
-  index = index + b3_entrypoint_sbe_size_of.length
-
-  index = index + b3_entrypoint_sbe_size_of.var_data_char
-
-  return index
+  return b3_entrypoint_sbe_size_of.variable_data(buffer, offset)
 end
 
 -- Display: Client Ip
