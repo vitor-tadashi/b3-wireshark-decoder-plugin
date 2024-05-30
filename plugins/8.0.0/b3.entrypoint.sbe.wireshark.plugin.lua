@@ -9,6 +9,7 @@
 --   Semantic version: 8.0.0
 -----------------------------------------------------------------------
 -- History
+-- 2024/05/30:  Code refactor and cleanup
 -- 2024/03/12:  Fix outbound business header size
 --              Add desk ID dissector
 --              Add memo dissector
@@ -23,12 +24,11 @@
 
 -----------------------------------------------------------------------
 
--- B3 Equities BinaryEntryPoint Sbe 8.0 Protocol
+-- B3 BinaryEntryPoint Sbe 8.0 Protocol
 local b3_entrypoint_sbe = Proto("b3.entrypoint.sbe", "B3 S.A. – Brasil, Bolsa, Balcão - Entrypoint SBE v8.0.0")
 
 -- Component Tables
 local show = {}
-local format = {}
 local b3_entrypoint_sbe_display = {}
 local b3_entrypoint_sbe_dissect = {}
 local b3_entrypoint_sbe_size_of = {}
@@ -36,13 +36,15 @@ local verify = {}
 local translate = {}
 
 -----------------------------------------------------------------------
--- Declare Protocol Fields
+-- Protocol Fields
 -----------------------------------------------------------------------
--- B3 Admin Messages
-
 b3_entrypoint_sbe.fields.simple_open_frame = ProtoField.new("Simple Open Frame", "b3.entrypoint.sbe.simple_open_frame", ftypes.STRING)
+
+-- Headers
 b3_entrypoint_sbe.fields.simple_open_framing_header = ProtoField.new("SOFH (Simple Open Framing Header)", "b3", ftypes.STRING)
-b3_entrypoint_sbe.fields.message_header = ProtoField.new("SBE (Simple Binary Entrypoint) Header", "b3.entrypoint.sbe.message_header", ftypes.STRING)
+b3_entrypoint_sbe.fields.message_header = ProtoField.new("SBE Message Header", "b3.entrypoint.sbe.message_header", ftypes.STRING)
+
+-- Admin Messages
 b3_entrypoint_sbe.fields.admin_message = ProtoField.new("Admin messages", "b3.entrypoint.sbe.admin", ftypes.STRING)
 b3_entrypoint_sbe.fields.negotiate_message = ProtoField.new("Negotiate", "b3.entrypoint.sbe.admin.negotiate", ftypes.STRING)
 b3_entrypoint_sbe.fields.negotiate_response_message = ProtoField.new("Negotiate Response", "b3.entrypoint.sbe.admin.negotiate_response", ftypes.STRING)
@@ -77,7 +79,7 @@ b3_entrypoint_sbe.fields.execution_report_trade_message = ProtoField.new("Execut
 b3_entrypoint_sbe.fields.business_message_reject = ProtoField.new("Business Message Reject", "b3.entrypoint.sbe.out.business_message_reject", ftypes.STRING)
 b3_entrypoint_sbe.fields.order_mass_action_report_message = ProtoField.new("Order Mass Action Report", "b3.entrypoint.sbe.out.order_mass_action_report", ftypes.STRING)
 
--- B3 Equities BinaryEntryPoint Sbe 8.0 Fields
+-- Fields
 b3_entrypoint_sbe.fields.account = ProtoField.new("Account", "b3.entrypoint.sbe.account", ftypes.UINT32)
 b3_entrypoint_sbe.fields.account_type = ProtoField.new("Account Type", "b3.entrypoint.sbe.account_type", ftypes.UINT8)
 b3_entrypoint_sbe.fields.aggressor_indicator = ProtoField.new("Aggressor Indicator", "b3.entrypoint.sbe.aggressor_indicator", ftypes.UINT8)
@@ -96,7 +98,6 @@ b3_entrypoint_sbe.fields.allocation_report_message = ProtoField.new("Allocation 
 b3_entrypoint_sbe.fields.asset = ProtoField.new("Asset", "b3.entrypoint.sbe.asset", ftypes.STRING)
 b3_entrypoint_sbe.fields.bidirectional_business_header = ProtoField.new("Bidirectional Business Header", "b3.entrypoint.sbe.bidirectional_business_header", ftypes.STRING)
 b3_entrypoint_sbe.fields.block_length = ProtoField.new("Block Length", "b3.entrypoint.sbe.block_length", ftypes.UINT16)
-
 b3_entrypoint_sbe.fields.business_reject_reason = ProtoField.new("Business Reject Reason", "b3.entrypoint.sbe.business_reject_reason", ftypes.UINT32)
 b3_entrypoint_sbe.fields.business_reject_ref_id = ProtoField.new("Business Reject Ref ID", "b3.entrypoint.sbe.business_reject_ref_id", ftypes.UINT64)
 b3_entrypoint_sbe.fields.cancel_on_disconnect_type = ProtoField.new("Cancel On Disconnect Type", "b3.entrypoint.sbe.cancel_on_disconnect_type", ftypes.UINT8)
@@ -137,7 +138,6 @@ b3_entrypoint_sbe.fields.exec_ref_id = ProtoField.new("Exec Ref ID", "b3.entrypo
 b3_entrypoint_sbe.fields.exec_restatement_reason = ProtoField.new("Exec Restatement Reason", "b3.entrypoint.sbe.exec_restatement_reason", ftypes.UINT8)
 b3_entrypoint_sbe.fields.exec_type = ProtoField.new("Exec Type", "b3.entrypoint.sbe.exec_type", ftypes.STRING)
 b3_entrypoint_sbe.fields.execute_underlying_trade = ProtoField.new("Execute Underlying Trade", "b3.entrypoint.sbe.execute_underlying_trade", ftypes.STRING)
-
 b3_entrypoint_sbe.fields.expire_date = ProtoField.new("Expire Date", "b3.entrypoint.sbe.expire_date", ftypes.UINT16)
 b3_entrypoint_sbe.fields.fixed_rate = ProtoField.new("Fixed Rate", "b3.entrypoint.sbe.fixed_rate", ftypes.DOUBLE)
 b3_entrypoint_sbe.fields.fixed_rate_optional = ProtoField.new("Fixed Rate Optional", "b3.entrypoint.sbe.fixed_rate_optional", ftypes.DOUBLE)
@@ -169,7 +169,6 @@ b3_entrypoint_sbe.fields.long_qty_optional = ProtoField.new("Long Qty Optional",
 b3_entrypoint_sbe.fields.market_segment_received_time = ProtoField.new("Market Segment Received Time", "b3.entrypoint.sbe.market_segment_received_time", ftypes.UINT64)
 b3_entrypoint_sbe.fields.mass_action_reject_reason = ProtoField.new("Mass Action Reject Reason", "b3.entrypoint.sbe.mass_action_reject_reason", ftypes.UINT8)
 b3_entrypoint_sbe.fields.mass_action_report_id = ProtoField.new("Mass Action Report ID", "b3.entrypoint.sbe.mass_action_report_id", ftypes.UINT64)
-
 b3_entrypoint_sbe.fields.mass_action_report_id_optional = ProtoField.new("Mass Action Report ID Optional", "b3.entrypoint.sbe.mass_action_report_id_optional", ftypes.UINT64)
 b3_entrypoint_sbe.fields.mass_action_response = ProtoField.new("Mass Action Response", "b3.entrypoint.sbe.mass_action_response", ftypes.STRING)
 b3_entrypoint_sbe.fields.mass_action_scope = ProtoField.new("Mass Action Scope", "b3.entrypoint.sbe.mass_action_scope", ftypes.UINT8)
@@ -177,14 +176,11 @@ b3_entrypoint_sbe.fields.mass_action_type = ProtoField.new("Mass Action Type", "
 b3_entrypoint_sbe.fields.mass_cancel_restatement_reason = ProtoField.new("Mass Cancel Restatement Reason", "b3.entrypoint.sbe.mass_cancel_restatement_reason", ftypes.UINT8)
 b3_entrypoint_sbe.fields.max_floor = ProtoField.new("Max Floor", "b3.entrypoint.sbe.max_floor", ftypes.UINT64)
 b3_entrypoint_sbe.fields.memo = ProtoField.new("Memo", "b3.entrypoint.sbe.memo", ftypes.STRING)
-
 b3_entrypoint_sbe.fields.message_length = ProtoField.new("Message length", "b3.entrypoint.sbe.message_length", ftypes.UINT16)
 b3_entrypoint_sbe.fields.min_qty = ProtoField.new("Min Qty", "b3.entrypoint.sbe.min_qty", ftypes.UINT64)
 b3_entrypoint_sbe.fields.mm_protection_reset = ProtoField.new("Mm Protection Reset", "b3.entrypoint.sbe.mm_protection_reset", ftypes.UINT8)
 b3_entrypoint_sbe.fields.multi_leg_reporting_type = ProtoField.new("Multi Leg Reporting Type", "b3.entrypoint.sbe.multi_leg_reporting_type", ftypes.STRING)
-
 b3_entrypoint_sbe.fields.negotiation_reject_code = ProtoField.new("Negotiation reject code", "b3.entrypoint.sbe.negotiation_reject_code", ftypes.UINT8)
-
 b3_entrypoint_sbe.fields.next_seq_no = ProtoField.new("Next Seq No", "b3.entrypoint.sbe.next_seq_no", ftypes.UINT32)
 b3_entrypoint_sbe.fields.no_legs_group = ProtoField.new("No Legs Group", "b3.entrypoint.sbe.no_legs_group", ftypes.STRING)
 b3_entrypoint_sbe.fields.no_legs_groups = ProtoField.new("No Legs Groups", "b3.entrypoint.sbe.no_legs_groups", ftypes.STRING)
@@ -192,17 +188,14 @@ b3_entrypoint_sbe.fields.no_positions_group = ProtoField.new("No Positions Group
 b3_entrypoint_sbe.fields.no_positions_groups = ProtoField.new("No Positions Groups", "b3.entrypoint.sbe.no_positions_groups", ftypes.STRING)
 b3_entrypoint_sbe.fields.no_sides_group = ProtoField.new("No Sides Group", "b3.entrypoint.sbe.no_sides_group", ftypes.STRING)
 b3_entrypoint_sbe.fields.no_sides_groups = ProtoField.new("No Sides Groups", "b3.entrypoint.sbe.no_sides_groups", ftypes.STRING)
-
 b3_entrypoint_sbe.fields.num_in_group = ProtoField.new("Num In Group", "b3.entrypoint.sbe.num_in_group", ftypes.UINT8)
 b3_entrypoint_sbe.fields.onbehalf_firm = ProtoField.new("Onbehalf Firm", "b3.entrypoint.sbe.onbehalf_firm", ftypes.UINT32)
 b3_entrypoint_sbe.fields.ord_rej_reason = ProtoField.new("Ord Rej Reason", "b3.entrypoint.sbe.ord_rej_reason", ftypes.UINT32)
 b3_entrypoint_sbe.fields.ord_status = ProtoField.new("Ord Status", "b3.entrypoint.sbe.ord_status", ftypes.STRING)
 b3_entrypoint_sbe.fields.ord_tag_id = ProtoField.new("Ord Tag ID", "b3.entrypoint.sbe.ord_tag_id", ftypes.UINT8)
-
 b3_entrypoint_sbe.fields.order_category = ProtoField.new("Order Category", "b3.entrypoint.sbe.order_category", ftypes.STRING)
 b3_entrypoint_sbe.fields.order_id = ProtoField.new("Order ID", "b3.entrypoint.sbe.order_id", ftypes.UINT64)
 b3_entrypoint_sbe.fields.order_id_optional = ProtoField.new("Order ID Optional", "b3.entrypoint.sbe.order_id_optional", ftypes.UINT64)
-
 b3_entrypoint_sbe.fields.order_qty = ProtoField.new("Order Qty", "b3.entrypoint.sbe.order_qty", ftypes.UINT64)
 b3_entrypoint_sbe.fields.order_qty_optional = ProtoField.new("Order Qty Optional", "b3.entrypoint.sbe.order_qty_optional", ftypes.UINT64)
 b3_entrypoint_sbe.fields.ordtype = ProtoField.new("OrdType", "b3.entrypoint.sbe.ordtype", ftypes.STRING)
@@ -220,7 +213,6 @@ b3_entrypoint_sbe.fields.pos_req_id = ProtoField.new("Pos Req ID", "b3.entrypoin
 b3_entrypoint_sbe.fields.pos_req_id_optional = ProtoField.new("Pos Req ID Optional", "b3.entrypoint.sbe.pos_req_id_optional", ftypes.UINT64)
 b3_entrypoint_sbe.fields.pos_trans_type = ProtoField.new("Pos Trans Type", "b3.entrypoint.sbe.pos_trans_type", ftypes.UINT8)
 b3_entrypoint_sbe.fields.pos_type = ProtoField.new("Pos Type", "b3.entrypoint.sbe.pos_type", ftypes.STRING)
-
 b3_entrypoint_sbe.fields.prefix = ProtoField.new("Prefix", "b3.entrypoint.sbe.prefix", ftypes.UINT16)
 b3_entrypoint_sbe.fields.price = ProtoField.new("Price", "b3.entrypoint.sbe.price", ftypes.DOUBLE)
 b3_entrypoint_sbe.fields.price_optional = ProtoField.new("Price Optional", "b3.entrypoint.sbe.price_optional", ftypes.DOUBLE)
@@ -241,7 +233,6 @@ b3_entrypoint_sbe.fields.quote_status_response_to = ProtoField.new("Quote Status
 b3_entrypoint_sbe.fields.ref_msg_type = ProtoField.new("Ref Msg Type", "b3.entrypoint.sbe.ref_msg_type", ftypes.UINT8)
 b3_entrypoint_sbe.fields.ref_seq_num = ProtoField.new("Ref Seq Num", "b3.entrypoint.sbe.ref_seq_num", ftypes.UINT32)
 b3_entrypoint_sbe.fields.request_timestamp = ProtoField.new("Request Timestamp", "b3.entrypoint.sbe.request_timestamp", ftypes.UINT64)
-
 b3_entrypoint_sbe.fields.retransmit_request_message = ProtoField.new("Retransmit Request", "b3.entrypoint.sbe.admin.retransmit_request", ftypes.STRING)
 b3_entrypoint_sbe.fields.routing_instruction = ProtoField.new("Routing Instruction", "b3.entrypoint.sbe.routing_instruction", ftypes.UINT8)
 b3_entrypoint_sbe.fields.schema_id = ProtoField.new("Schema ID", "b3.entrypoint.sbe.schema_id", ftypes.UINT16)
@@ -267,13 +258,11 @@ b3_entrypoint_sbe.fields.settltype = ProtoField.new("SettlType", "b3.entrypoint.
 b3_entrypoint_sbe.fields.settltype_optional = ProtoField.new("SettlType Optional", "b3.entrypoint.sbe.settltype_optional", ftypes.STRING)
 b3_entrypoint_sbe.fields.short_qty = ProtoField.new("Short Qty", "b3.entrypoint.sbe.short_qty", ftypes.UINT64)
 b3_entrypoint_sbe.fields.side = ProtoField.new("Side", "b3.entrypoint.sbe.side", ftypes.STRING)
-
 b3_entrypoint_sbe.fields.simple_ordtype = ProtoField.new("Simple OrdType", "b3.entrypoint.sbe.simple_ordtype", ftypes.STRING)
 b3_entrypoint_sbe.fields.single_cancel_restatement_reason = ProtoField.new("Single Cancel Restatement Reason", "b3.entrypoint.sbe.single_cancel_restatement_reason", ftypes.UINT8)
 b3_entrypoint_sbe.fields.stop_px = ProtoField.new("Stop Px", "b3.entrypoint.sbe.stop_px", ftypes.DOUBLE)
 b3_entrypoint_sbe.fields.symbol = ProtoField.new("Symbol", "b3.entrypoint.sbe.symbol", ftypes.STRING)
 b3_entrypoint_sbe.fields.template_id = ProtoField.new("Template ID", "b3.entrypoint.sbe.template_id", ftypes.UINT16)
-
 b3_entrypoint_sbe.fields.termination_code = ProtoField.new("Termination Code", "b3.entrypoint.sbe.termination_code", ftypes.UINT8)
 b3_entrypoint_sbe.fields.text = ProtoField.new("Text", "b3.entrypoint.sbe.text", ftypes.STRING)
 b3_entrypoint_sbe.fields.threshold_amount = ProtoField.new("Threshold Amount", "b3.entrypoint.sbe.threshold_amount", ftypes.DOUBLE)
@@ -295,7 +284,7 @@ b3_entrypoint_sbe.fields.working_indicator = ProtoField.new("Working Indicator",
 -- Declare Dissection Options
 -----------------------------------------------------------------------
 
--- B3 Equities BinaryEntryPoint Sbe 8.0 Element Dissection Options
+-- B3 BinaryEntryPoint Sbe 8.0 Element Dissection Options
 show.allocation_instruction_message = true
 show.allocation_report_message = true
 show.business_message_reject = true
@@ -360,7 +349,7 @@ show.terminate_message = true
 show.text = true
 show.payload = false
 
--- Register B3 Equities BinaryEntryPoint Sbe 8.0 Show Options
+-- Register B3 BinaryEntryPoint Sbe 8.0 Show Options
 b3_entrypoint_sbe.prefs.show_allocation_instruction_message = Pref.bool("Show Allocation Instruction Message", show.allocation_instruction_message, "Parse and add Allocation Instruction Message to protocol tree")
 b3_entrypoint_sbe.prefs.show_allocation_report_message = Pref.bool("Show Allocation Report Message", show.allocation_report_message, "Parse and add Allocation Report Message to protocol tree")
 b3_entrypoint_sbe.prefs.show_business_message_reject = Pref.bool("Show Business Message Reject", show.business_message_reject, "Parse and add Business Message Reject to protocol tree")
@@ -691,11 +680,177 @@ end
 
 
 -----------------------------------------------------------------------
--- Dissect B3 Equities BinaryEntryPoint Sbe 8.0
+-- Field size constants
 -----------------------------------------------------------------------
-
--- Size: Encoding Type
 b3_entrypoint_sbe_size_of.encoding_type = 2
+b3_entrypoint_sbe_size_of.message_length = 2
+b3_entrypoint_sbe_size_of.length = 1
+b3_entrypoint_sbe_size_of.investor_id = 8
+b3_entrypoint_sbe_size_of.prefix = 2
+b3_entrypoint_sbe_size_of.document = 4
+b3_entrypoint_sbe_size_of.asset = 6
+b3_entrypoint_sbe_size_of.ord_tag_id = 1
+b3_entrypoint_sbe_size_of.security_id_source = 1
+b3_entrypoint_sbe_size_of.security_exchange = 4
+b3_entrypoint_sbe_size_of.security_id_optional = 8
+b3_entrypoint_sbe_size_of.mass_cancel_restatement_reason = 1
+b3_entrypoint_sbe_size_of.mass_action_reject_reason = 1
+b3_entrypoint_sbe_size_of.mass_action_response = 1
+b3_entrypoint_sbe_size_of.transact_time = 8
+b3_entrypoint_sbe_size_of.mass_action_report_id = 8
+b3_entrypoint_sbe_size_of.clordid = 8
+b3_entrypoint_sbe_size_of.mass_action_scope = 1
+b3_entrypoint_sbe_size_of.mass_action_type = 1
+b3_entrypoint_sbe_size_of.outbound_business_header = 18
+b3_entrypoint_sbe_size_of.inbound_business_header = 18
+b3_entrypoint_sbe_size_of.entering_trader = 5
+b3_entrypoint_sbe_size_of.sender_location = 10
+b3_entrypoint_sbe_size_of.side = 1
+b3_entrypoint_sbe_size_of.trade_date_optional = 2
+b3_entrypoint_sbe_size_of.alloc_status = 1
+b3_entrypoint_sbe_size_of.quantity = 8
+b3_entrypoint_sbe_size_of.alloc_rej_code = 4
+b3_entrypoint_sbe_size_of.alloc_no_orders_type = 1
+b3_entrypoint_sbe_size_of.alloc_report_type = 1
+b3_entrypoint_sbe_size_of.alloc_trans_type = 1
+b3_entrypoint_sbe_size_of.alloc_report_id = 8
+b3_entrypoint_sbe_size_of.security_id = 8
+b3_entrypoint_sbe_size_of.alloc_id = 8
+b3_entrypoint_sbe_size_of.alloc_qty = 8
+b3_entrypoint_sbe_size_of.alloc_account = 4
+b3_entrypoint_sbe_size_of.individual_alloc_id = 8
+b3_entrypoint_sbe_size_of.trade_id = 4
+b3_entrypoint_sbe_size_of.alloc_type = 1
+b3_entrypoint_sbe_size_of.short_qty = 8
+b3_entrypoint_sbe_size_of.long_qty_optional = 8
+b3_entrypoint_sbe_size_of.pos_type = 1
+b3_entrypoint_sbe_size_of.num_in_group = 1
+b3_entrypoint_sbe_size_of.block_length = 2
+b3_entrypoint_sbe_size_of.contrary_instruction_indicator = 1
+b3_entrypoint_sbe_size_of.pos_maint_result = 4
+b3_entrypoint_sbe_size_of.account = 4
+b3_entrypoint_sbe_size_of.threshold_amount = 8
+b3_entrypoint_sbe_size_of.clearing_business_date = 2
+b3_entrypoint_sbe_size_of.account_type = 1
+b3_entrypoint_sbe_size_of.orig_pos_req_ref_id = 8
+b3_entrypoint_sbe_size_of.trade_id_optional = 4
+b3_entrypoint_sbe_size_of.pos_maint_status = 1
+b3_entrypoint_sbe_size_of.pos_maint_action = 1
+b3_entrypoint_sbe_size_of.pos_trans_type = 1
+b3_entrypoint_sbe_size_of.pos_maint_rpt_id = 8
+b3_entrypoint_sbe_size_of.pos_req_id_optional = 8
+b3_entrypoint_sbe_size_of.long_qty = 8
+b3_entrypoint_sbe_size_of.pos_req_id = 8
+b3_entrypoint_sbe_size_of.pos_maint_rpt_ref_id = 8
+b3_entrypoint_sbe_size_of.entering_firm_optional = 4
+b3_entrypoint_sbe_size_of.days_to_settlement_optional = 2
+b3_entrypoint_sbe_size_of.fixed_rate_optional = 8
+b3_entrypoint_sbe_size_of.executing_trader = 5
+b3_entrypoint_sbe_size_of.order_qty_optional = 8
+b3_entrypoint_sbe_size_of.price_optional = 8
+b3_entrypoint_sbe_size_of.settltype_optional = 1
+b3_entrypoint_sbe_size_of.contra_broker = 4
+b3_entrypoint_sbe_size_of.quote_id_optional = 8
+b3_entrypoint_sbe_size_of.quote_request_reject_reason = 4
+b3_entrypoint_sbe_size_of.bidirectional_business_header = 1
+b3_entrypoint_sbe_size_of.days_to_settlement = 2
+b3_entrypoint_sbe_size_of.execute_underlying_trade = 1
+b3_entrypoint_sbe_size_of.fixed_rate = 8
+b3_entrypoint_sbe_size_of.order_qty = 8
+b3_entrypoint_sbe_size_of.quote_id = 8
+b3_entrypoint_sbe_size_of.quote_status_response_to = 1
+b3_entrypoint_sbe_size_of.quote_status = 1
+b3_entrypoint_sbe_size_of.quote_reject_reason = 4
+b3_entrypoint_sbe_size_of.price = 8
+b3_entrypoint_sbe_size_of.security_response_id = 8
+b3_entrypoint_sbe_size_of.symbol = 20
+b3_entrypoint_sbe_size_of.security_strategy_type = 3
+b3_entrypoint_sbe_size_of.security_response_type = 1
+b3_entrypoint_sbe_size_of.security_req_id = 8
+b3_entrypoint_sbe_size_of.leg_side = 1
+b3_entrypoint_sbe_size_of.leg_ratio_qty = 8
+b3_entrypoint_sbe_size_of.leg_security_exchange = 4
+b3_entrypoint_sbe_size_of.leg_symbol = 20
+b3_entrypoint_sbe_size_of.business_reject_reason = 4
+b3_entrypoint_sbe_size_of.business_reject_ref_id = 8
+b3_entrypoint_sbe_size_of.ref_seq_num = 4
+b3_entrypoint_sbe_size_of.ref_msg_type = 1
+b3_entrypoint_sbe_size_of.exec_ref_id = 8
+b3_entrypoint_sbe_size_of.secondary_exec_id = 8
+b3_entrypoint_sbe_size_of.trade_date = 2
+b3_entrypoint_sbe_size_of.aggressor_indicator = 1
+b3_entrypoint_sbe_size_of.order_id = 8
+b3_entrypoint_sbe_size_of.cum_qty = 8
+b3_entrypoint_sbe_size_of.leaves_qty = 8
+b3_entrypoint_sbe_size_of.exec_id = 8
+b3_entrypoint_sbe_size_of.last_px = 8
+b3_entrypoint_sbe_size_of.last_qty = 8
+b3_entrypoint_sbe_size_of.secondary_order_id = 8
+b3_entrypoint_sbe_size_of.clordid_optional = 8
+b3_entrypoint_sbe_size_of.ord_status = 1
+b3_entrypoint_sbe_size_of.crossed_indicator = 2
+b3_entrypoint_sbe_size_of.crossid_optional = 8
+b3_entrypoint_sbe_size_of.max_floor = 8
+b3_entrypoint_sbe_size_of.min_qty = 8
+b3_entrypoint_sbe_size_of.stop_px = 8
+b3_entrypoint_sbe_size_of.expire_date = 2
+b3_entrypoint_sbe_size_of.time_in_force = 1
+b3_entrypoint_sbe_size_of.ordtype = 1
+b3_entrypoint_sbe_size_of.origclordid = 8
+b3_entrypoint_sbe_size_of.order_id_optional = 8
+b3_entrypoint_sbe_size_of.ord_rej_reason = 4
+b3_entrypoint_sbe_size_of.secondary_order_id_optional = 8
+b3_entrypoint_sbe_size_of.cxl_rej_response_to = 1
+b3_entrypoint_sbe_size_of.tot_no_related_sym = 1
+b3_entrypoint_sbe_size_of.multi_leg_reporting_type = 1
+b3_entrypoint_sbe_size_of.order_category = 1
+b3_entrypoint_sbe_size_of.exec_type = 1
+b3_entrypoint_sbe_size_of.exec_restatement_reason = 1
+b3_entrypoint_sbe_size_of.working_indicator = 1
+b3_entrypoint_sbe_size_of.market_segment_received_time = 8
+b3_entrypoint_sbe_size_of.protection_price = 8
+b3_entrypoint_sbe_size_of.executing_trader_optional = 5
+b3_entrypoint_sbe_size_of.crossid = 8
+b3_entrypoint_sbe_size_of.single_cancel_restatement_reason = 1
+b3_entrypoint_sbe_size_of.custody_allocation_type = 4
+b3_entrypoint_sbe_size_of.custody_account = 4
+b3_entrypoint_sbe_size_of.custodian = 4
+b3_entrypoint_sbe_size_of.routing_instruction = 1
+b3_entrypoint_sbe_size_of.time_in_force_optional = 1
+b3_entrypoint_sbe_size_of.self_trade_prevention_instruction = 1
+b3_entrypoint_sbe_size_of.mm_protection_reset = 1
+b3_entrypoint_sbe_size_of.time_in_force_simple = 1
+b3_entrypoint_sbe_size_of.simple_ordtype = 1
+b3_entrypoint_sbe_size_of.retransmit_reject_code = 1
+b3_entrypoint_sbe_size_of.request_timestamp = 8
+b3_entrypoint_sbe_size_of.session_id = 4
+b3_entrypoint_sbe_size_of.count = 4
+b3_entrypoint_sbe_size_of.next_seq_no = 4
+b3_entrypoint_sbe_size_of.from_seq_no = 4
+b3_entrypoint_sbe_size_of.timestamp = 8
+b3_entrypoint_sbe_size_of.termination_code = 1
+b3_entrypoint_sbe_size_of.msg_seq_num = 4
+b3_entrypoint_sbe_size_of.poss_resend = 1
+b3_entrypoint_sbe_size_of.market_segment_id = 1
+b3_entrypoint_sbe_size_of.session_ver_id = 8
+b3_entrypoint_sbe_size_of.last_incoming_seq_no_optional = 4
+b3_entrypoint_sbe_size_of.establishment_reject_code = 1
+b3_entrypoint_sbe_size_of.last_incoming_seq_no = 4
+b3_entrypoint_sbe_size_of.keep_alive_interval = 8
+b3_entrypoint_sbe_size_of.cod_timeout_window = 8
+b3_entrypoint_sbe_size_of.cancel_on_disconnect_type = 1
+b3_entrypoint_sbe_size_of.current_session_ver_id = 8
+b3_entrypoint_sbe_size_of.negotiation_reject_code = 1
+b3_entrypoint_sbe_size_of.entering_firm = 4
+b3_entrypoint_sbe_size_of.onbehalf_firm = 4
+b3_entrypoint_sbe_size_of.version = 2
+b3_entrypoint_sbe_size_of.schema_id = 2
+b3_entrypoint_sbe_size_of.template_id = 2
+
+
+-----------------------------------------------------------------------
+-- Dissector function
+-----------------------------------------------------------------------
 
 -- Display: Encoding Type
 b3_entrypoint_sbe_display.encoding_type = function(value, hex)
@@ -718,9 +873,6 @@ b3_entrypoint_sbe_dissect.encoding_type = function(buffer, offset, packet, paren
 
   return offset + length, value
 end
-
--- Size: Message Length
-b3_entrypoint_sbe_size_of.message_length = 2
 
 -- Display: Message Length
 b3_entrypoint_sbe_display.message_length = function(value)
@@ -818,9 +970,6 @@ b3_entrypoint_sbe_dissect.header_message = function(buffer, offset, packet, pare
   return b3_entrypoint_sbe_dissect.header_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Length
-b3_entrypoint_sbe_size_of.length = 1
-
 -- Display: Length
 b3_entrypoint_sbe_display.length = function(value)
   return "Length: "..value
@@ -874,9 +1023,6 @@ b3_entrypoint_sbe_dissect.text = function(buffer, offset, packet, parent)
   return b3_entrypoint_sbe_dissect.text_fields(buffer, offset, packet, parent)
 end
 
--- Size: Document
-b3_entrypoint_sbe_size_of.document = 4
-
 -- Display: Document
 b3_entrypoint_sbe_display.document = function(value)
   if self_trade_prevention_instruction == nil then
@@ -918,9 +1064,6 @@ b3_entrypoint_sbe_dissect.document = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: Prefix
-b3_entrypoint_sbe_size_of.prefix = 2
-
 -- Display: Prefix
 b3_entrypoint_sbe_display.prefix = function(value)
   if self_trade_prevention_instruction == nil then
@@ -949,9 +1092,6 @@ b3_entrypoint_sbe_dissect.prefix = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Calculate size of: Investor ID
-b3_entrypoint_sbe_size_of.investor_id = 8
 
 -- Display: Investor ID
 b3_entrypoint_sbe_display.investor_id = function(buffer, offset, size, packet, parent)
@@ -987,9 +1127,6 @@ b3_entrypoint_sbe_dissect.investor_id = function(buffer, offset, packet, parent)
   return b3_entrypoint_sbe_dissect.investor_id_fields(buffer, offset, packet, parent)
 end
 
--- Size: Security ID Source
-b3_entrypoint_sbe_size_of.security_id_source = 1
-
 -- Display: Ord Tag ID
 b3_entrypoint_sbe_display.security_id_source = function(value)
   if value == 52 then
@@ -1014,9 +1151,6 @@ b3_entrypoint_sbe_dissect.security_id_source = function(buffer, offset, packet, 
 
   return offset + length, value
 end
-
--- Size: Security Exchange
-b3_entrypoint_sbe_size_of.security_exchange = 4
 
 -- Display: Security Exchange
 b3_entrypoint_sbe_display.security_exchange = function(value)
@@ -1051,9 +1185,6 @@ b3_entrypoint_sbe_dissect.security_exchange = function(buffer, offset, packet, p
   return offset + length, value
 end
 
--- Size: Security ID Optional
-b3_entrypoint_sbe_size_of.security_id_optional = 8
-
 -- Display: Security ID Optional
 b3_entrypoint_sbe_display.security_id_optional = function(value)
   return "Security ID: "..value
@@ -1070,9 +1201,6 @@ b3_entrypoint_sbe_dissect.security_id_optional = function(buffer, offset, packet
 
   return offset + length, value
 end
-
--- Size: Asset
-b3_entrypoint_sbe_size_of.asset = 6
 
 -- Display: Asset
 b3_entrypoint_sbe_display.asset = function(value)
@@ -1145,9 +1273,6 @@ b3_entrypoint_sbe_dissect.side_optional = function(buffer, offset, packet, paren
   return offset + length, value
 end
 
--- Size: Ord Tag ID
-b3_entrypoint_sbe_size_of.ord_tag_id = 1
-
 -- Display: Ord Tag ID
 b3_entrypoint_sbe_display.ord_tag_id = function(value)
   return "Order Tag ID: "..value
@@ -1164,9 +1289,6 @@ b3_entrypoint_sbe_dissect.ord_tag_id = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Mass Cancel Restatement Reason
-b3_entrypoint_sbe_size_of.mass_cancel_restatement_reason = 1
 
 -- Display: Mass Cancel Restatement Reason
 b3_entrypoint_sbe_display.mass_cancel_restatement_reason = function(value)
@@ -1249,9 +1371,6 @@ b3_entrypoint_sbe_dissect.mass_cancel_restatement_reason = function(buffer, offs
   return offset + length, value
 end
 
--- Size: Mass Action Reject Reason
-b3_entrypoint_sbe_size_of.mass_action_reject_reason = 1
-
 -- Display: Mass Action Reject Reason
 b3_entrypoint_sbe_display.mass_action_reject_reason = function(value)
   if value == 0 then
@@ -1281,9 +1400,6 @@ b3_entrypoint_sbe_dissect.mass_action_reject_reason = function(buffer, offset, p
 
   return offset + length, value
 end
-
--- Size: Mass Action Response
-b3_entrypoint_sbe_size_of.mass_action_response = 1
 
 -- Display: Mass Action Response
 b3_entrypoint_sbe_display.mass_action_response = function(value)
@@ -1319,9 +1435,6 @@ b3_entrypoint_sbe_dissect.mass_action_response = function(buffer, offset, packet
   return offset + length, value
 end
 
--- Size: Transact Time
-b3_entrypoint_sbe_size_of.transact_time = 8
-
 -- Display: Transact Time
 b3_entrypoint_sbe_display.transact_time = function(value)
   return "Transact time: "..value
@@ -1338,9 +1451,6 @@ b3_entrypoint_sbe_dissect.transact_time = function(buffer, offset, packet, paren
 
   return offset + length, value
 end
-
--- Size: Mass Action Report ID
-b3_entrypoint_sbe_size_of.mass_action_report_id = 8
 
 -- Display: Mass Action Report ID
 b3_entrypoint_sbe_display.mass_action_report_id = function(value)
@@ -1359,9 +1469,6 @@ b3_entrypoint_sbe_dissect.mass_action_report_id = function(buffer, offset, packe
   return offset + length, value
 end
 
--- Size: ClOrdId
-b3_entrypoint_sbe_size_of.clordid = 8
-
 -- Display: ClOrdId
 b3_entrypoint_sbe_display.clordid = function(value)
   return "Client order ID: "..value
@@ -1378,9 +1485,6 @@ b3_entrypoint_sbe_dissect.clordid = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Mass Action Scope
-b3_entrypoint_sbe_size_of.mass_action_scope = 1
 
 -- Display: Mass Action Scope
 b3_entrypoint_sbe_display.mass_action_scope = function(value)
@@ -1405,9 +1509,6 @@ b3_entrypoint_sbe_dissect.mass_action_scope = function(buffer, offset, packet, p
 
   return offset + length, value
 end
-
--- Size: Mass Action Type
-b3_entrypoint_sbe_size_of.mass_action_type = 1
 
 -- Display: Mass Action Type
 b3_entrypoint_sbe_display.mass_action_type = function(value)
@@ -1435,9 +1536,6 @@ b3_entrypoint_sbe_dissect.mass_action_type = function(buffer, offset, packet, pa
 
   return offset + length, value
 end
-
--- Size: Outbound Business Header
-b3_entrypoint_sbe_size_of.outbound_business_header = 18
 
 -- Display: Inbound Business Header
 b3_entrypoint_sbe_display.outbound_business_header = function(buffer, packet, parent)
@@ -1585,8 +1683,6 @@ b3_entrypoint_sbe_dissect.order_mass_action_report_message = function(buffer, of
   return b3_entrypoint_sbe_dissect.order_mass_action_report_message_fields(buffer, offset, packet, parent)
 end
 
-b3_entrypoint_sbe_size_of.inbound_business_header = 18
-
 -- Display: Inbound Business Header
 b3_entrypoint_sbe_display.inbound_business_header = function(buffer, packet, parent)
   return ""
@@ -1706,9 +1802,6 @@ b3_entrypoint_sbe_dissect.order_mass_action_request_message = function(buffer, o
   return b3_entrypoint_sbe_dissect.order_mass_action_request_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Entering Trader
-b3_entrypoint_sbe_size_of.entering_trader = 5
-
 -- Display: Entering Trader
 b3_entrypoint_sbe_display.entering_trader = function(value)
   -- Check if field has value
@@ -1741,9 +1834,6 @@ b3_entrypoint_sbe_dissect.entering_trader = function(buffer, offset, packet, par
 
   return offset + length, value
 end
-
--- Size: Sender Location
-b3_entrypoint_sbe_size_of.sender_location = 10
 
 -- Display: Sender Location
 b3_entrypoint_sbe_display.sender_location = function(value)
@@ -1778,9 +1868,6 @@ b3_entrypoint_sbe_dissect.sender_location = function(buffer, offset, packet, par
   return offset + length, value
 end
 
--- Size: Side
-b3_entrypoint_sbe_size_of.side = 1
-
 -- Display: Side
 b3_entrypoint_sbe_display.side = function(value, optional)
   if value == 49 then
@@ -1814,9 +1901,6 @@ b3_entrypoint_sbe_dissect.side = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: Trade Date Optional
-b3_entrypoint_sbe_size_of.trade_date_optional = 2
-
 -- Display: Trade Date Optional
 b3_entrypoint_sbe_display.trade_date_optional = function(value)
   return "Trade date: "..value
@@ -1833,9 +1917,6 @@ b3_entrypoint_sbe_dissect.trade_date_optional = function(buffer, offset, packet,
 
   return offset + length, value
 end
-
--- Size: Alloc Status
-b3_entrypoint_sbe_size_of.alloc_status = 1
 
 -- Display: Alloc Status
 b3_entrypoint_sbe_display.alloc_status = function(value)
@@ -1871,9 +1952,6 @@ b3_entrypoint_sbe_dissect.alloc_status = function(buffer, offset, packet, parent
   return offset + length, value
 end
 
--- Size: Quantity
-b3_entrypoint_sbe_size_of.quantity = 8
-
 -- Display: Quantity
 b3_entrypoint_sbe_display.quantity = function(value)
   return "Quantity: "..value
@@ -1891,9 +1969,6 @@ b3_entrypoint_sbe_dissect.quantity = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: Alloc Rej Code
-b3_entrypoint_sbe_size_of.alloc_rej_code = 4
-
 -- Display: Alloc Rej Code
 b3_entrypoint_sbe_display.alloc_rej_code = function(value)
   return "Allocation reject code: "..value
@@ -1910,9 +1985,6 @@ b3_entrypoint_sbe_dissect.alloc_rej_code = function(buffer, offset, packet, pare
 
   return offset + length, value
 end
-
--- Size: Alloc No Orders Type
-b3_entrypoint_sbe_size_of.alloc_no_orders_type = 1
 
 -- Display: Alloc No Orders Type
 b3_entrypoint_sbe_display.alloc_no_orders_type = function(value)
@@ -1945,9 +2017,6 @@ b3_entrypoint_sbe_dissect.alloc_no_orders_type = function(buffer, offset, packet
   return offset + length, value
 end
 
--- Size: Alloc Report Type
-b3_entrypoint_sbe_size_of.alloc_report_type = 1
-
 -- Display: Alloc Report Type
 b3_entrypoint_sbe_display.alloc_report_type = function(value)
   if value == "8" then
@@ -1978,9 +2047,6 @@ b3_entrypoint_sbe_dissect.alloc_report_type = function(buffer, offset, packet, p
 
   return offset + length, value
 end
-
--- Size: Alloc Trans Type
-b3_entrypoint_sbe_size_of.alloc_trans_type = 1
 
 -- Display: Alloc Trans Type
 b3_entrypoint_sbe_display.alloc_trans_type = function(value)
@@ -2016,9 +2082,6 @@ b3_entrypoint_sbe_dissect.alloc_trans_type = function(buffer, offset, packet, pa
   return offset + length, value
 end
 
--- Size: Alloc Report ID
-b3_entrypoint_sbe_size_of.alloc_report_id = 8
-
 -- Display: Alloc Report ID
 b3_entrypoint_sbe_display.alloc_report_id = function(value)
   return "Allocation report ID: "..value
@@ -2036,9 +2099,6 @@ b3_entrypoint_sbe_dissect.alloc_report_id = function(buffer, offset, packet, par
   return offset + length, value
 end
 
--- Size: Security ID
-b3_entrypoint_sbe_size_of.security_id = 8
-
 -- Display: Security ID
 b3_entrypoint_sbe_display.security_id = function(value)
   return "Security ID: "..value
@@ -2055,9 +2115,6 @@ b3_entrypoint_sbe_dissect.security_id = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Alloc ID
-b3_entrypoint_sbe_size_of.alloc_id = 8
 
 -- Display: Alloc ID
 b3_entrypoint_sbe_display.alloc_id = function(value)
@@ -2207,9 +2264,6 @@ b3_entrypoint_sbe_dissect.asset = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: Alloc Qty
-b3_entrypoint_sbe_size_of.alloc_qty = 8
-
 -- Display: Alloc Qty
 b3_entrypoint_sbe_display.alloc_qty = function(value)
   return "Quantity: "..value
@@ -2226,9 +2280,6 @@ b3_entrypoint_sbe_dissect.alloc_qty = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Alloc Account
-b3_entrypoint_sbe_size_of.alloc_account = 4
 
 -- Display: Alloc Account
 b3_entrypoint_sbe_display.alloc_account = function(value)
@@ -2247,9 +2298,6 @@ b3_entrypoint_sbe_dissect.alloc_account = function(buffer, offset, packet, paren
   return offset + length, value
 end
 
--- Size: Individual Alloc ID
-b3_entrypoint_sbe_size_of.individual_alloc_id = 8
-
 -- Display: Individual Alloc ID
 b3_entrypoint_sbe_display.individual_alloc_id = function(value)
   return "Individual allocation ID: "..value
@@ -2267,9 +2315,6 @@ b3_entrypoint_sbe_dissect.individual_alloc_id = function(buffer, offset, packet,
   return offset + length, value
 end
 
--- Size: Trade ID
-b3_entrypoint_sbe_size_of.trade_id = 4
-
 -- Display: Trade ID
 b3_entrypoint_sbe_display.trade_id = function(value)
   return "Trade ID: "..value
@@ -2286,9 +2331,6 @@ b3_entrypoint_sbe_dissect.trade_id = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Alloc Type
-b3_entrypoint_sbe_size_of.alloc_type = 1
 
 -- Display: Alloc Type
 b3_entrypoint_sbe_display.alloc_type = function(value)
@@ -2423,9 +2465,6 @@ b3_entrypoint_sbe_dissect.allocation_instruction_message = function(buffer, offs
   return b3_entrypoint_sbe_dissect.allocation_instruction_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Short Qty
-b3_entrypoint_sbe_size_of.short_qty = 8
-
 -- Display: Short Qty
 b3_entrypoint_sbe_display.short_qty = function(value)
   return "Quantity: "..value
@@ -2443,9 +2482,6 @@ b3_entrypoint_sbe_dissect.short_qty = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: Long Qty Optional
-b3_entrypoint_sbe_size_of.long_qty_optional = 8
-
 -- Display: Long Qty Optional
 b3_entrypoint_sbe_display.long_qty_optional = function(value)
   return "Quantity: "..value
@@ -2462,9 +2498,6 @@ b3_entrypoint_sbe_dissect.long_qty_optional = function(buffer, offset, packet, p
 
   return offset + length, value
 end
-
--- Size: Pos Type
-b3_entrypoint_sbe_size_of.pos_type = 1
 
 -- Display: Pos Type
 b3_entrypoint_sbe_display.pos_type = function(value)
@@ -2559,9 +2592,6 @@ b3_entrypoint_sbe_dissect.no_positions_group = function(buffer, offset, packet, 
   return b3_entrypoint_sbe_dissect.no_positions_group_fields(buffer, offset, packet, parent)
 end
 
--- Size: Num In Group
-b3_entrypoint_sbe_size_of.num_in_group = 1
-
 -- Display: Num In Group
 b3_entrypoint_sbe_display.num_in_group = function(value)
   return "Num in group: "..value
@@ -2578,9 +2608,6 @@ b3_entrypoint_sbe_dissect.num_in_group = function(buffer, offset, packet, parent
 
   return offset + length, value
 end
-
--- Size: Block Length
-b3_entrypoint_sbe_size_of.block_length = 2
 
 -- Display: Block Length
 b3_entrypoint_sbe_display.block_length = function(value)
@@ -2690,9 +2717,6 @@ b3_entrypoint_sbe_dissect.no_positions_groups = function(buffer, offset, packet,
   return b3_entrypoint_sbe_dissect.no_positions_groups_fields(buffer, offset, packet, parent)
 end
 
--- Size: Contrary Instruction Indicator
-b3_entrypoint_sbe_size_of.contrary_instruction_indicator = 1
-
 -- Display: Contrary Instruction Indicator
 b3_entrypoint_sbe_display.contrary_instruction_indicator = function(value)
   if value == 0 then
@@ -2717,9 +2741,6 @@ b3_entrypoint_sbe_dissect.contrary_instruction_indicator = function(buffer, offs
   return offset + length, value
 end
 
--- Size: Pos Maint Result
-b3_entrypoint_sbe_size_of.pos_maint_result = 4
-
 -- Display: Pos Maint Result
 b3_entrypoint_sbe_display.pos_maint_result = function(value)
   return "Result: "..value
@@ -2737,9 +2758,6 @@ b3_entrypoint_sbe_dissect.pos_maint_result = function(buffer, offset, packet, pa
   return offset + length, value
 end
 
--- Size: Account
-b3_entrypoint_sbe_size_of.account = 4
-
 -- Display: Account
 b3_entrypoint_sbe_display.account = function(value)
   return "Account: "..value
@@ -2756,9 +2774,6 @@ b3_entrypoint_sbe_dissect.account = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Threshold Amount
-b3_entrypoint_sbe_size_of.threshold_amount = 8
 
 -- Display: Threshold Amount
 b3_entrypoint_sbe_display.threshold_amount = function(raw, value)
@@ -2793,9 +2808,6 @@ b3_entrypoint_sbe_dissect.threshold_amount = function(buffer, offset, packet, pa
   return offset + length, value
 end
 
--- Size: Clearing Business Date
-b3_entrypoint_sbe_size_of.clearing_business_date = 2
-
 -- Display: Clearing Business Date
 b3_entrypoint_sbe_display.clearing_business_date = function(value)
   return "Clearing business date: "..value
@@ -2812,9 +2824,6 @@ b3_entrypoint_sbe_dissect.clearing_business_date = function(buffer, offset, pack
 
   return offset + length, value
 end
-
--- Size: Account Type
-b3_entrypoint_sbe_size_of.account_type = 1
 
 -- Display: Account Type
 b3_entrypoint_sbe_display.account_type = function(value)
@@ -2843,9 +2852,6 @@ b3_entrypoint_sbe_dissect.account_type = function(buffer, offset, packet, parent
   return offset + length, value
 end
 
--- Size: Orig Pos Req Ref ID
-b3_entrypoint_sbe_size_of.orig_pos_req_ref_id = 8
-
 -- Display: Orig Pos Req Ref ID
 b3_entrypoint_sbe_display.orig_pos_req_ref_id = function(value)
   return "Original request reference ID: "..value
@@ -2863,9 +2869,6 @@ b3_entrypoint_sbe_dissect.orig_pos_req_ref_id = function(buffer, offset, packet,
   return offset + length, value
 end
 
--- Size: Trade ID Optional
-b3_entrypoint_sbe_size_of.trade_id_optional = 4
-
 -- Display: Trade ID Optional
 b3_entrypoint_sbe_display.trade_id_optional = function(value)
   return "Trade ID: "..value
@@ -2882,9 +2885,6 @@ b3_entrypoint_sbe_dissect.trade_id_optional = function(buffer, offset, packet, p
 
   return offset + length, value
 end
-
--- Size: Pos Maint Status
-b3_entrypoint_sbe_size_of.pos_maint_status = 1
 
 -- Display: Pos Maint Status
 b3_entrypoint_sbe_display.pos_maint_status = function(value)
@@ -2926,9 +2926,6 @@ b3_entrypoint_sbe_dissect.pos_maint_status = function(buffer, offset, packet, pa
   return offset + length, value
 end
 
--- Size: Pos Maint Action
-b3_entrypoint_sbe_size_of.pos_maint_action = 1
-
 -- Display: Pos Maint Action
 b3_entrypoint_sbe_display.pos_maint_action = function(value)
   if value == "1" then
@@ -2963,9 +2960,6 @@ b3_entrypoint_sbe_dissect.pos_maint_action = function(buffer, offset, packet, pa
   return offset + length, value
 end
 
--- Size: Pos Trans Type
-b3_entrypoint_sbe_size_of.pos_trans_type = 1
-
 -- Display: Pos Trans Type
 b3_entrypoint_sbe_display.pos_trans_type = function(value)
   if value == 1 then
@@ -2993,9 +2987,6 @@ b3_entrypoint_sbe_dissect.pos_trans_type = function(buffer, offset, packet, pare
   return offset + length, value
 end
 
--- Size: Pos Maint Rpt ID
-b3_entrypoint_sbe_size_of.pos_maint_rpt_id = 8
-
 -- Display: Pos Maint Rpt ID
 b3_entrypoint_sbe_display.pos_maint_rpt_id = function(value)
   return "RPT ID: "..value
@@ -3012,9 +3003,6 @@ b3_entrypoint_sbe_dissect.pos_maint_rpt_id = function(buffer, offset, packet, pa
 
   return offset + length, value
 end
-
--- Size: Pos Req ID Optional
-b3_entrypoint_sbe_size_of.pos_req_id_optional = 8
 
 -- Display: Pos Req ID Optional
 b3_entrypoint_sbe_display.pos_req_id_optional = function(value)
@@ -3150,9 +3138,6 @@ b3_entrypoint_sbe_dissect.position_maintenance_report_message = function(buffer,
   return b3_entrypoint_sbe_dissect.position_maintenance_report_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Long Qty
-b3_entrypoint_sbe_size_of.long_qty = 8
-
 -- Display: Long Qty
 b3_entrypoint_sbe_display.long_qty = function(value)
   return "Quantity: "..value
@@ -3169,9 +3154,6 @@ b3_entrypoint_sbe_dissect.long_qty = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Pos Req ID
-b3_entrypoint_sbe_size_of.pos_req_id = 8
 
 -- Display: Pos Req ID
 b3_entrypoint_sbe_display.pos_req_id = function(value)
@@ -3282,9 +3264,6 @@ b3_entrypoint_sbe_dissect.position_maintenance_request_message = function(buffer
 
   return b3_entrypoint_sbe_dissect.position_maintenance_request_message_fields(buffer, offset, packet, parent)
 end
-
--- Size: Pos Maint Rpt Ref ID
-b3_entrypoint_sbe_size_of.pos_maint_rpt_ref_id = 8
 
 -- Display: Pos Maint Rpt Ref ID
 b3_entrypoint_sbe_display.pos_maint_rpt_ref_id = function(value)
@@ -3431,9 +3410,6 @@ b3_entrypoint_sbe_dissect.quote_req_id = function(buffer, offset, packet, parent
   return b3_entrypoint_sbe_dissect.quote_req_id_fields(buffer, offset, packet, parent)
 end
 
--- Size: Entering Firm Optional
-b3_entrypoint_sbe_size_of.entering_firm_optional = 4
-
 -- Display: Entering Firm Optional
 b3_entrypoint_sbe_display.entering_firm_optional = function(value)
   return "Entering firm: "..value
@@ -3552,9 +3528,6 @@ b3_entrypoint_sbe_dissect.no_sides_groups = function(buffer, offset, packet, par
   return b3_entrypoint_sbe_dissect.no_sides_groups_fields(buffer, offset, packet, parent)
 end
 
--- Size: Days To Settlement Optional
-b3_entrypoint_sbe_size_of.days_to_settlement_optional = 2
-
 -- Display: Days To Settlement Optional
 b3_entrypoint_sbe_display.days_to_settlement_optional = function(value)
   return "Days to settlement: "..value
@@ -3571,9 +3544,6 @@ b3_entrypoint_sbe_dissect.days_to_settlement_optional = function(buffer, offset,
 
   return offset + length, value
 end
-
--- Size: Fixed Rate Optional
-b3_entrypoint_sbe_size_of.fixed_rate_optional = 8
 
 -- Display: Fixed Rate Optional
 b3_entrypoint_sbe_display.fixed_rate_optional = function(raw, value)
@@ -3608,9 +3578,6 @@ b3_entrypoint_sbe_dissect.fixed_rate_optional = function(buffer, offset, packet,
   return offset + length, value
 end
 
--- Size: Executing Trader
-b3_entrypoint_sbe_size_of.executing_trader = 5
-
 -- Display: Executing Trader
 b3_entrypoint_sbe_display.executing_trader = function(value)
   -- Check if field has value
@@ -3644,9 +3611,6 @@ b3_entrypoint_sbe_dissect.executing_trader = function(buffer, offset, packet, pa
   return offset + length, value
 end
 
--- Size: Order Qty Optional
-b3_entrypoint_sbe_size_of.order_qty_optional = 8
-
 -- Display: Order Qty Optional
 b3_entrypoint_sbe_display.order_qty_optional = function(value)
   return "Order quantity: "..value
@@ -3663,9 +3627,6 @@ b3_entrypoint_sbe_dissect.order_qty_optional = function(buffer, offset, packet, 
 
   return offset + length, value
 end
-
--- Size: Price Optional
-b3_entrypoint_sbe_size_of.price_optional = 8
 
 -- Display: Price Optional
 b3_entrypoint_sbe_display.price_optional = function(raw, value)
@@ -3699,9 +3660,6 @@ b3_entrypoint_sbe_dissect.price_optional = function(buffer, offset, packet, pare
 
   return offset + length, value
 end
-
--- Size: SettlType Optional
-b3_entrypoint_sbe_size_of.settltype_optional = 1
 
 -- Display: SettlType Optional
 b3_entrypoint_sbe_display.settltype_optional = function(value)
@@ -3743,9 +3701,6 @@ b3_entrypoint_sbe_dissect.settltype_optional = function(buffer, offset, packet, 
   return offset + length, value
 end
 
--- Size: Contra Broker
-b3_entrypoint_sbe_size_of.contra_broker = 4
-
 -- Display: Contra Broker
 b3_entrypoint_sbe_display.contra_broker = function(value)
   return "Contra broker: "..value
@@ -3762,9 +3717,6 @@ b3_entrypoint_sbe_dissect.contra_broker = function(buffer, offset, packet, paren
 
   return offset + length, value
 end
-
--- Size: Quote ID Optional
-b3_entrypoint_sbe_size_of.quote_id_optional = 8
 
 -- Display: Quote ID Optional
 b3_entrypoint_sbe_display.quote_id_optional = function(value)
@@ -3783,9 +3735,6 @@ b3_entrypoint_sbe_dissect.quote_id_optional = function(buffer, offset, packet, p
   return offset + length, value
 end
 
--- Size: Quote Request Reject Reason
-b3_entrypoint_sbe_size_of.quote_request_reject_reason = 4
-
 -- Display: Quote Request Reject Reason
 b3_entrypoint_sbe_display.quote_request_reject_reason = function(value)
   return "Quote request reject reason: "..value
@@ -3802,9 +3751,6 @@ b3_entrypoint_sbe_dissect.quote_request_reject_reason = function(buffer, offset,
 
   return offset + length, value
 end
-
--- Size: Bidirectional Business Header
-b3_entrypoint_sbe_size_of.bidirectional_business_header = 1
 
 -- Display: Bidirectional Business Header
 b3_entrypoint_sbe_display.bidirectional_business_header = function(value)
@@ -4032,9 +3978,6 @@ b3_entrypoint_sbe_dissect.quote_cancel_message = function(buffer, offset, packet
   return b3_entrypoint_sbe_dissect.quote_cancel_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Days To Settlement
-b3_entrypoint_sbe_size_of.days_to_settlement = 2
-
 -- Display: Days To Settlement
 b3_entrypoint_sbe_display.days_to_settlement = function(value)
   return "Days To Settlement: "..value
@@ -4051,9 +3994,6 @@ b3_entrypoint_sbe_dissect.days_to_settlement = function(buffer, offset, packet, 
 
   return offset + length, value
 end
-
--- Size: Execute Underlying Trade
-b3_entrypoint_sbe_size_of.execute_underlying_trade = 1
 
 -- Display: Execute Underlying Trade
 b3_entrypoint_sbe_display.execute_underlying_trade = function(value)
@@ -4091,9 +4031,6 @@ b3_entrypoint_sbe_dissect.execute_underlying_trade = function(buffer, offset, pa
 
   return offset + length, value
 end
-
--- Size: Fixed Rate
-b3_entrypoint_sbe_size_of.fixed_rate = 8
 
 -- Display: Fixed Rate
 b3_entrypoint_sbe_display.fixed_rate = function(value)
@@ -4158,9 +4095,6 @@ b3_entrypoint_sbe_dissect.settltype = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: Order Qty
-b3_entrypoint_sbe_size_of.order_qty = 8
-
 -- Display: Order Qty
 b3_entrypoint_sbe_display.order_qty = function(value)
   -- Check if field has value
@@ -4183,9 +4117,6 @@ b3_entrypoint_sbe_dissect.order_qty = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Quote ID
-b3_entrypoint_sbe_size_of.quote_id = 8
 
 -- Display: Quote ID
 b3_entrypoint_sbe_display.quote_id = function(value)
@@ -4318,9 +4249,6 @@ b3_entrypoint_sbe_dissect.quote_message = function(buffer, offset, packet, paren
   return b3_entrypoint_sbe_dissect.quote_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Quote Status Response To
-b3_entrypoint_sbe_size_of.quote_status_response_to = 1
-
 -- Display: Quote Status Response To
 b3_entrypoint_sbe_display.quote_status_response_to = function(value)
   if value == "0" then
@@ -4364,9 +4292,6 @@ b3_entrypoint_sbe_dissect.quote_status_response_to = function(buffer, offset, pa
   return offset + length, value
 end
 
--- Size: Quote Status
-b3_entrypoint_sbe_size_of.quote_status = 1
-
 -- Display: Quote Status
 b3_entrypoint_sbe_display.quote_status = function(value)
   if value == 7 then
@@ -4405,9 +4330,6 @@ b3_entrypoint_sbe_dissect.quote_status = function(buffer, offset, packet, parent
 
   return offset + length, value
 end
-
--- Size: Quote Reject Reason
-b3_entrypoint_sbe_size_of.quote_reject_reason = 4
 
 -- Display: Quote Reject Reason
 b3_entrypoint_sbe_display.quote_reject_reason = function(value)
@@ -4563,9 +4485,6 @@ b3_entrypoint_sbe_dissect.quote_status_report_message = function(buffer, offset,
   return b3_entrypoint_sbe_dissect.quote_status_report_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Price
-b3_entrypoint_sbe_size_of.price = 8
-
 -- Display: Price
 b3_entrypoint_sbe_display.price = function(value)
   return "Price: "..value
@@ -4708,9 +4627,6 @@ b3_entrypoint_sbe_dissect.quote_request_message = function(buffer, offset, packe
   return b3_entrypoint_sbe_dissect.quote_request_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Security Response ID
-b3_entrypoint_sbe_size_of.security_response_id = 8
-
 -- Display: Security Response ID
 b3_entrypoint_sbe_display.security_response_id = function(value)
   return "Security response ID: "..value
@@ -4727,9 +4643,6 @@ b3_entrypoint_sbe_dissect.security_response_id = function(buffer, offset, packet
 
   return offset + length, value
 end
-
--- Size: Symbol
-b3_entrypoint_sbe_size_of.symbol = 20
 
 -- Display: Symbol
 b3_entrypoint_sbe_display.symbol = function(value)
@@ -4764,9 +4677,6 @@ b3_entrypoint_sbe_dissect.symbol = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: Security Strategy Type
-b3_entrypoint_sbe_size_of.security_strategy_type = 3
-
 -- Display: Security Strategy Type
 b3_entrypoint_sbe_display.security_strategy_type = function(value)
   -- Check if field has value
@@ -4800,9 +4710,6 @@ b3_entrypoint_sbe_dissect.security_strategy_type = function(buffer, offset, pack
   return offset + length, value
 end
 
--- Size: Security Response Type
-b3_entrypoint_sbe_size_of.security_response_type = 1
-
 -- Display: Security Response Type
 b3_entrypoint_sbe_display.security_response_type = function(value)
   if value == 1 then
@@ -4829,9 +4736,6 @@ b3_entrypoint_sbe_dissect.security_response_type = function(buffer, offset, pack
 
   return offset + length, value
 end
-
--- Size: Security Req ID
-b3_entrypoint_sbe_size_of.security_req_id = 8
 
 -- Display: Security Req ID
 b3_entrypoint_sbe_display.security_req_id = function(value)
@@ -4927,9 +4831,6 @@ b3_entrypoint_sbe_dissect.security_definition_response_message = function(buffer
   return b3_entrypoint_sbe_dissect.security_definition_response_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Leg Side
-b3_entrypoint_sbe_size_of.leg_side = 1
-
 -- Display: Leg Side
 b3_entrypoint_sbe_display.leg_side = function(value)
   if value == "1" then
@@ -4967,9 +4868,6 @@ b3_entrypoint_sbe_dissect.leg_side = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: Leg Ratio Qty
-b3_entrypoint_sbe_size_of.leg_ratio_qty = 8
-
 -- Display: Leg Ratio Qty
 b3_entrypoint_sbe_display.leg_ratio_qty = function(value)
   return "Leg ratio quantity: "..value
@@ -4992,9 +4890,6 @@ b3_entrypoint_sbe_dissect.leg_ratio_qty = function(buffer, offset, packet, paren
 
   return offset + length, value
 end
-
--- Size: Leg Security Exchange
-b3_entrypoint_sbe_size_of.leg_security_exchange = 4
 
 -- Display: Leg Security Exchange
 b3_entrypoint_sbe_display.leg_security_exchange = function(value)
@@ -5028,9 +4923,6 @@ b3_entrypoint_sbe_dissect.leg_security_exchange = function(buffer, offset, packe
 
   return offset + length, value
 end
-
--- Size: Leg Symbol
-b3_entrypoint_sbe_size_of.leg_symbol = 20
 
 -- Display: Leg Symbol
 b3_entrypoint_sbe_display.leg_symbol = function(value)
@@ -5223,9 +5115,6 @@ b3_entrypoint_sbe_dissect.security_definition_request_message = function(buffer,
   return b3_entrypoint_sbe_dissect.security_definition_request_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Business Reject Reason
-b3_entrypoint_sbe_size_of.business_reject_reason = 4
-
 -- Display: Business Reject Reason
 b3_entrypoint_sbe_display.business_reject_reason = function(value)
   return "Business reject reason: "..value
@@ -5242,9 +5131,6 @@ b3_entrypoint_sbe_dissect.business_reject_reason = function(buffer, offset, pack
 
   return offset + length, value
 end
-
--- Size: Business Reject Ref ID
-b3_entrypoint_sbe_size_of.business_reject_ref_id = 8
 
 -- Display: Business Reject Ref ID
 b3_entrypoint_sbe_display.business_reject_ref_id = function(value)
@@ -5263,9 +5149,6 @@ b3_entrypoint_sbe_dissect.business_reject_ref_id = function(buffer, offset, pack
   return offset + length, value
 end
 
--- Size: Ref Seq Num
-b3_entrypoint_sbe_size_of.ref_seq_num = 4
-
 -- Display: Ref Seq Num
 b3_entrypoint_sbe_display.ref_seq_num = function(value)
   return "Ref Seq Num: "..value
@@ -5282,9 +5165,6 @@ b3_entrypoint_sbe_dissect.ref_seq_num = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Ref Msg Type
-b3_entrypoint_sbe_size_of.ref_msg_type = 1
 
 -- Display: Ref Msg Type
 b3_entrypoint_sbe_display.ref_msg_type = function(value)
@@ -5495,9 +5375,6 @@ b3_entrypoint_sbe_dissect.business_message_reject = function(buffer, offset, pac
   return b3_entrypoint_sbe_dissect.business_message_reject_fields(buffer, offset, packet, parent)
 end
 
--- Size: Exec Ref ID
-b3_entrypoint_sbe_size_of.exec_ref_id = 8
-
 -- Display: Exec Ref ID
 b3_entrypoint_sbe_display.exec_ref_id = function(value)
   return "Exec ref ID: "..value
@@ -5514,9 +5391,6 @@ b3_entrypoint_sbe_dissect.exec_ref_id = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Secondary Exec ID
-b3_entrypoint_sbe_size_of.secondary_exec_id = 8
 
 -- Display: Secondary Exec ID
 b3_entrypoint_sbe_display.secondary_exec_id = function(value)
@@ -5535,9 +5409,6 @@ b3_entrypoint_sbe_dissect.secondary_exec_id = function(buffer, offset, packet, p
   return offset + length, value
 end
 
--- Size: Trade Date
-b3_entrypoint_sbe_size_of.trade_date = 2
-
 -- Display: Trade Date
 b3_entrypoint_sbe_display.trade_date = function(value)
   return "Trade date: "..value
@@ -5554,9 +5425,6 @@ b3_entrypoint_sbe_dissect.trade_date = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Aggressor Indicator
-b3_entrypoint_sbe_size_of.aggressor_indicator = 1
 
 -- Display: Aggressor Indicator
 b3_entrypoint_sbe_display.aggressor_indicator = function(value)
@@ -5582,9 +5450,6 @@ b3_entrypoint_sbe_dissect.aggressor_indicator = function(buffer, offset, packet,
   return offset + length, value
 end
 
--- Size: Order ID
-b3_entrypoint_sbe_size_of.order_id = 8
-
 -- Display: Order ID
 b3_entrypoint_sbe_display.order_id = function(value)
   return "Order ID: "..value
@@ -5601,9 +5466,6 @@ b3_entrypoint_sbe_dissect.order_id = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Cum Qty
-b3_entrypoint_sbe_size_of.cum_qty = 8
 
 -- Display: Cum Qty
 b3_entrypoint_sbe_display.cum_qty = function(value)
@@ -5622,9 +5484,6 @@ b3_entrypoint_sbe_dissect.cum_qty = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: Leaves Qty
-b3_entrypoint_sbe_size_of.leaves_qty = 8
-
 -- Display: Leaves Qty
 b3_entrypoint_sbe_display.leaves_qty = function(value)
   return "Leaves quantity: "..value
@@ -5642,9 +5501,6 @@ b3_entrypoint_sbe_dissect.leaves_qty = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: Exec ID
-b3_entrypoint_sbe_size_of.exec_id = 8
-
 -- Display: Exec ID
 b3_entrypoint_sbe_display.exec_id = function(value)
   return "Execution ID: "..value
@@ -5661,9 +5517,6 @@ b3_entrypoint_sbe_dissect.exec_id = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Last Px
-b3_entrypoint_sbe_size_of.last_px = 8
 
 -- Display: Last Px
 b3_entrypoint_sbe_display.last_px = function(value)
@@ -5688,9 +5541,6 @@ b3_entrypoint_sbe_dissect.last_px = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: Last Qty
-b3_entrypoint_sbe_size_of.last_qty = 8
-
 -- Display: Last Qty
 b3_entrypoint_sbe_display.last_qty = function(value)
   return "Last quantity: "..value
@@ -5707,9 +5557,6 @@ b3_entrypoint_sbe_dissect.last_qty = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Secondary Order ID
-b3_entrypoint_sbe_size_of.secondary_order_id = 8
 
 -- Display: Secondary Order ID
 b3_entrypoint_sbe_display.secondary_order_id = function(value)
@@ -5728,9 +5575,6 @@ b3_entrypoint_sbe_dissect.secondary_order_id = function(buffer, offset, packet, 
   return offset + length, value
 end
 
--- Size: ClOrdId Optional
-b3_entrypoint_sbe_size_of.clordid_optional = 8
-
 -- Display: ClOrdId Optional
 b3_entrypoint_sbe_display.clordid_optional = function(value)
   return "Client order ID: "..value
@@ -5747,9 +5591,6 @@ b3_entrypoint_sbe_dissect.clordid_optional = function(buffer, offset, packet, pa
 
   return offset + length, value
 end
-
--- Size: Ord Status
-b3_entrypoint_sbe_size_of.ord_status = 1
 
 -- Display: Ord Status
 b3_entrypoint_sbe_display.ord_status = function(value)
@@ -5941,7 +5782,6 @@ b3_entrypoint_sbe_dissect.execution_report_forward_message_fields = function(buf
   -- Order Qty: 8 Byte Unsigned Fixed Width Integer
   index, order_qty = b3_entrypoint_sbe_dissect.order_qty(buffer, index, packet, parent)
 
-
   return index
 end
 
@@ -5957,9 +5797,6 @@ b3_entrypoint_sbe_dissect.execution_report_forward_message = function(buffer, of
 
   return b3_entrypoint_sbe_dissect.execution_report_forward_message_fields(buffer, offset, packet, parent)
 end
-
--- Size: Crossed Indicator
-b3_entrypoint_sbe_size_of.crossed_indicator = 2
 
 -- Display: Crossed Indicator
 b3_entrypoint_sbe_display.crossed_indicator = function(value)
@@ -5991,9 +5828,6 @@ b3_entrypoint_sbe_dissect.crossed_indicator = function(buffer, offset, packet, p
   return offset + length, value
 end
 
--- Size: CrossId Optional
-b3_entrypoint_sbe_size_of.crossid_optional = 8
-
 -- Display: CrossId Optional
 b3_entrypoint_sbe_display.crossid_optional = function(value)
   return "Cross ID: "..value
@@ -6012,9 +5846,6 @@ b3_entrypoint_sbe_dissect.crossid_optional = function(buffer, offset, packet, pa
   return offset + length, value
 end
 
--- Size: Max Floor
-b3_entrypoint_sbe_size_of.max_floor = 8
-
 -- Display: Max Floor
 b3_entrypoint_sbe_display.max_floor = function(value)
   return "Max floor: "..value
@@ -6032,9 +5863,6 @@ b3_entrypoint_sbe_dissect.max_floor = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: Min Qty
-b3_entrypoint_sbe_size_of.min_qty = 8
-
 -- Display: Min Qty
 b3_entrypoint_sbe_display.min_qty = function(value)
   return "Min quantity: "..value
@@ -6051,9 +5879,6 @@ b3_entrypoint_sbe_dissect.min_qty = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Stop Px
-b3_entrypoint_sbe_size_of.stop_px = 8
 
 -- Display: Stop Px
 b3_entrypoint_sbe_display.stop_px = function(raw, value)
@@ -6088,9 +5913,6 @@ b3_entrypoint_sbe_dissect.stop_px = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: Expire Date
-b3_entrypoint_sbe_size_of.expire_date = 2
-
 -- Display: Expire Date
 b3_entrypoint_sbe_display.expire_date = function(value)
   return "Expire date: "..value
@@ -6107,9 +5929,6 @@ b3_entrypoint_sbe_dissect.expire_date = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Time In Force
-b3_entrypoint_sbe_size_of.time_in_force = 1
 
 -- Display: Time In Force Simple
 b3_entrypoint_sbe_display.time_in_force = function(value)
@@ -6156,9 +5975,6 @@ b3_entrypoint_sbe_dissect.time_in_force = function(buffer, offset, packet, paren
   return offset + length, value
 end
 
--- Size: OrdType
-b3_entrypoint_sbe_size_of.ordtype = 1
-
 -- Display: OrdType
 b3_entrypoint_sbe_display.ordtype = function(value)
   if value == 49 then
@@ -6204,9 +6020,6 @@ b3_entrypoint_sbe_dissect.ordtype = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: OrigClOrdId
-b3_entrypoint_sbe_size_of.origclordid = 8
-
 -- Display: OrigClOrdId
 b3_entrypoint_sbe_display.origclordid = function(value)
   return "Original client order ID: "..value
@@ -6223,9 +6036,6 @@ b3_entrypoint_sbe_dissect.origclordid = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Order ID Optional
-b3_entrypoint_sbe_size_of.order_id_optional = 8
 
 -- Display: Order ID Optional
 b3_entrypoint_sbe_display.order_id_optional = function(value)
@@ -6244,9 +6054,6 @@ b3_entrypoint_sbe_dissect.order_id_optional = function(buffer, offset, packet, p
   return offset + length, value
 end
 
--- Size: Ord Rej Reason
-b3_entrypoint_sbe_size_of.ord_rej_reason = 4
-
 -- Display: Ord Rej Reason
 b3_entrypoint_sbe_display.ord_rej_reason = function(value)
   return "Order reject reason: "..value
@@ -6264,9 +6071,6 @@ b3_entrypoint_sbe_dissect.ord_rej_reason = function(buffer, offset, packet, pare
   return offset + length, value
 end
 
--- Size: Secondary Order ID Optional
-b3_entrypoint_sbe_size_of.secondary_order_id_optional = 8
-
 -- Display: Secondary Order ID Optional
 b3_entrypoint_sbe_display.secondary_order_id_optional = function(value)
   return "Secondary Order ID Optional: "..value
@@ -6283,9 +6087,6 @@ b3_entrypoint_sbe_dissect.secondary_order_id_optional = function(buffer, offset,
 
   return offset + length, value
 end
-
--- Size: Cxl Rej Response To
-b3_entrypoint_sbe_size_of.cxl_rej_response_to = 1
 
 -- Display: Cxl Rej Response To
 b3_entrypoint_sbe_display.cxl_rej_response_to = function(value)
@@ -6471,9 +6272,6 @@ b3_entrypoint_sbe_dissect.execution_report_reject_message = function(buffer, off
   return b3_entrypoint_sbe_dissect.execution_report_reject_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Tot No Related Sym
-b3_entrypoint_sbe_size_of.tot_no_related_sym = 1
-
 -- Display: Tot No Related Sym
 b3_entrypoint_sbe_display.tot_no_related_sym = function(value)
   return "Tot No Related Sym: "..value
@@ -6490,9 +6288,6 @@ b3_entrypoint_sbe_dissect.tot_no_related_sym = function(buffer, offset, packet, 
 
   return offset + length, value
 end
-
--- Size: Multi Leg Reporting Type
-b3_entrypoint_sbe_size_of.multi_leg_reporting_type = 1
 
 -- Display: Multi Leg Reporting Type
 b3_entrypoint_sbe_display.multi_leg_reporting_type = function(value)
@@ -6526,9 +6321,6 @@ b3_entrypoint_sbe_dissect.multi_leg_reporting_type = function(buffer, offset, pa
 
   return offset + length, value
 end
-
--- Size: Order Category
-b3_entrypoint_sbe_size_of.order_category = 1
 
 -- Display: Order Category
 b3_entrypoint_sbe_display.order_category = function(value)
@@ -6574,9 +6366,6 @@ b3_entrypoint_sbe_dissect.order_category = function(buffer, offset, packet, pare
 
   return offset + length, value
 end
-
--- Size: Exec Type
-b3_entrypoint_sbe_size_of.exec_type = 1
 
 -- Display: Exec Type
 b3_entrypoint_sbe_display.exec_type = function(value)
@@ -6809,9 +6598,6 @@ b3_entrypoint_sbe_dissect.mass_action_report_id_optional = function(buffer, offs
   return offset + length, value
 end
 
--- Size: Exec Restatement Reason
-b3_entrypoint_sbe_size_of.exec_restatement_reason = 1
-
 -- Display: Exec Restatement Reason
 b3_entrypoint_sbe_display.exec_restatement_reason = function(value)
   if value == 8 then
@@ -6893,9 +6679,6 @@ b3_entrypoint_sbe_dissect.exec_restatement_reason = function(buffer, offset, pac
   return offset + length, value
 end
 
--- Size: Working Indicator
-b3_entrypoint_sbe_size_of.working_indicator = 1
-
 -- Display: Working Indicator
 b3_entrypoint_sbe_display.working_indicator = function(value)
   if value == 0 then
@@ -6919,9 +6702,6 @@ b3_entrypoint_sbe_dissect.working_indicator = function(buffer, offset, packet, p
 
   return offset + length, value
 end
-
--- Size: Market Segment Received Time
-b3_entrypoint_sbe_size_of.market_segment_received_time = 8
 
 -- Display: Market Segment Received Time
 b3_entrypoint_sbe_display.market_segment_received_time = function(value)
@@ -7117,9 +6897,6 @@ b3_entrypoint_sbe_dissect.execution_report_cancel_message = function(buffer, off
 
   return b3_entrypoint_sbe_dissect.execution_report_cancel_message_fields(buffer, offset, packet, parent)
 end
-
--- Size: Protection Price
-b3_entrypoint_sbe_size_of.protection_price = 8
 
 -- Display: Protection Price
 b3_entrypoint_sbe_display.protection_price = function(raw, value)
@@ -7489,9 +7266,6 @@ b3_entrypoint_sbe_dissect.execution_report_new_message = function(buffer, offset
   return b3_entrypoint_sbe_dissect.execution_report_new_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Executing Trader Optional
-b3_entrypoint_sbe_size_of.executing_trader_optional = 5
-
 -- Display: Executing Trader Optional
 b3_entrypoint_sbe_display.executing_trader_optional = function(value)
   -- Check if field has value
@@ -7524,9 +7298,6 @@ b3_entrypoint_sbe_dissect.executing_trader_optional = function(buffer, offset, p
 
   return offset + length, value
 end
-
--- Size: CrossId
-b3_entrypoint_sbe_size_of.crossid = 8
 
 -- Display: CrossId
 b3_entrypoint_sbe_display.crossid = function(value)
@@ -7634,9 +7405,6 @@ b3_entrypoint_sbe_dissect.new_order_cross_message = function(buffer, offset, pac
 
   return b3_entrypoint_sbe_dissect.new_order_cross_message_fields(buffer, offset, packet, parent)
 end
-
--- Size: Single Cancel Restatement Reason
-b3_entrypoint_sbe_size_of.single_cancel_restatement_reason = 1
 
 -- Display: Single Cancel Restatement Reason
 b3_entrypoint_sbe_display.single_cancel_restatement_reason = function(value)
@@ -7824,9 +7592,6 @@ b3_entrypoint_sbe_dissect.order_cancel_request_message = function(buffer, offset
   return b3_entrypoint_sbe_dissect.order_cancel_request_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Custody Allocation Type
-b3_entrypoint_sbe_size_of.custody_allocation_type = 4
-
 -- Display: Custody Allocation Type
 b3_entrypoint_sbe_display.custody_allocation_type = function(value)
   return "Custody allocation type: "..value
@@ -7844,9 +7609,6 @@ b3_entrypoint_sbe_dissect.custody_allocation_type = function(buffer, offset, pac
   return offset + length, value
 end
 
--- Size: Custody Account
-b3_entrypoint_sbe_size_of.custody_account = 4
-
 -- Display: Custody Account
 b3_entrypoint_sbe_display.custody_account = function(value)
   return "Custody account: "..value
@@ -7863,9 +7625,6 @@ b3_entrypoint_sbe_dissect.custody_account = function(buffer, offset, packet, par
 
   return offset + length, value
 end
-
--- Size: Custodian
-b3_entrypoint_sbe_size_of.custodian = 4
 
 -- Display: Custodian
 b3_entrypoint_sbe_display.custodian = function(value)
@@ -7931,9 +7690,6 @@ b3_entrypoint_sbe_dissect.custodian_info = function(buffer, offset, packet, pare
   return b3_entrypoint_sbe_dissect.custodian_info_fields(buffer, offset, packet, parent)
 end
 
--- Size: Routing Instruction
-b3_entrypoint_sbe_size_of.routing_instruction = 1
-
 -- Display: Routing Instruction
 b3_entrypoint_sbe_display.routing_instruction = function(value)
   if value == 1 then
@@ -7966,9 +7722,6 @@ b3_entrypoint_sbe_dissect.routing_instruction = function(buffer, offset, packet,
 
   return offset + length, value
 end
-
--- Size: Time In Force Optional
-b3_entrypoint_sbe_size_of.time_in_force_optional = 1
 
 -- Display: Time In Force Optional
 b3_entrypoint_sbe_display.time_in_force_optional = function(value)
@@ -8022,9 +7775,6 @@ b3_entrypoint_sbe_dissect.time_in_force_optional = function(buffer, offset, pack
   return offset + length, value
 end
 
--- Size: Self Trade Prevention Instruction
-b3_entrypoint_sbe_size_of.self_trade_prevention_instruction = 1
-
 -- Display: Self Trade Prevention Instruction
 b3_entrypoint_sbe_display.self_trade_prevention_instruction = function(value)
   if value == 0 then
@@ -8054,9 +7804,6 @@ b3_entrypoint_sbe_dissect.self_trade_prevention_instruction = function(buffer, o
 
   return offset + length, value
 end
-
--- Size: Mm Protection Reset
-b3_entrypoint_sbe_size_of.mm_protection_reset = 1
 
 -- Display: Mm Protection Reset
 b3_entrypoint_sbe_display.mm_protection_reset = function(value)
@@ -8406,9 +8153,6 @@ b3_entrypoint_sbe_dissect.new_order_single_message = function(buffer, offset, pa
   return b3_entrypoint_sbe_dissect.new_order_single_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Time In Force Simple
-b3_entrypoint_sbe_size_of.time_in_force_simple = 1
-
 -- Display: Time In Force Simple
 b3_entrypoint_sbe_display.time_in_force_simple = function(value)
   if value == 48 then
@@ -8450,9 +8194,6 @@ b3_entrypoint_sbe_dissect.time_in_force_simple = function(buffer, offset, packet
 
   return offset + length, value
 end
-
--- Size: Simple OrdType
-b3_entrypoint_sbe_size_of.simple_ordtype = 1
 
 -- Display: Simple OrdType
 b3_entrypoint_sbe_display.simple_ordtype = function(value)
@@ -8732,9 +8473,6 @@ b3_entrypoint_sbe_dissect.simple_new_order_message = function(buffer, offset, pa
   return b3_entrypoint_sbe_dissect.simple_new_order_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Retransmit reject code
-b3_entrypoint_sbe_size_of.retransmit_reject_code = 1
-
 -- Display: Retransmit reject code
 b3_entrypoint_sbe_display.retransmit_reject_code = function(value)
   if value == 0 then
@@ -8780,9 +8518,6 @@ b3_entrypoint_sbe_dissect.retransmit_reject_code = function(buffer, offset, pack
   return offset + length, value
 end
 
--- Size: Request Timestamp
-b3_entrypoint_sbe_size_of.request_timestamp = 8
-
 -- Display: Request Timestamp
 b3_entrypoint_sbe_display.request_timestamp = function(value)
   return "Request timestamp: "..value
@@ -8799,9 +8534,6 @@ b3_entrypoint_sbe_dissect.request_timestamp = function(buffer, offset, packet, p
 
   return offset + length, value
 end
-
--- Size: Session ID
-b3_entrypoint_sbe_size_of.session_id = 4
 
 -- Display: Session ID
 b3_entrypoint_sbe_display.session_id = function(value)
@@ -8867,9 +8599,6 @@ b3_entrypoint_sbe_dissect.retransmit_reject_message = function(buffer, offset, p
   return b3_entrypoint_sbe_dissect.retransmit_reject_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Count
-b3_entrypoint_sbe_size_of.count = 4
-
 -- Display: Count
 b3_entrypoint_sbe_display.count = function(value)
   return "Count: "..value
@@ -8886,9 +8615,6 @@ b3_entrypoint_sbe_dissect.count = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Next Seq No
-b3_entrypoint_sbe_size_of.next_seq_no = 4
 
 -- Display: Next Seq No
 b3_entrypoint_sbe_display.next_seq_no = function(value)
@@ -8959,9 +8685,6 @@ b3_entrypoint_sbe_dissect.retransmission_message = function(buffer, offset, pack
   return b3_entrypoint_sbe_dissect.retransmission_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: From Seq No
-b3_entrypoint_sbe_size_of.from_seq_no = 4
-
 -- Display: From Seq No
 b3_entrypoint_sbe_display.from_seq_no = function(value)
   return "From sequence number: "..value
@@ -8978,9 +8701,6 @@ b3_entrypoint_sbe_dissect.from_seq_no = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Timestamp
-b3_entrypoint_sbe_size_of.timestamp = 8
 
 -- Display: Timestamp
 b3_entrypoint_sbe_display.timestamp = function(value)
@@ -9131,9 +8851,6 @@ b3_entrypoint_sbe_dissect.not_applied_message = function(buffer, offset, packet,
   return b3_entrypoint_sbe_dissect.not_applied_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Termination Code
-b3_entrypoint_sbe_size_of.termination_code = 1
-
 -- Display: Termination Code
 b3_entrypoint_sbe_display.termination_code = function(value)
   if value == 0 then
@@ -9209,7 +8926,6 @@ b3_entrypoint_sbe_dissect.termination_code = function(buffer, offset, packet, pa
   return offset + length, value
 end
 
-b3_entrypoint_sbe_size_of.msg_seq_num = 4
 -- Dissect: Msg Seq Num
 b3_entrypoint_sbe_dissect.msg_seq_num = function(buffer, offset, packet, parent)
   local length = b3_entrypoint_sbe_size_of.msg_seq_num
@@ -9245,7 +8961,6 @@ b3_entrypoint_sbe_display.sending_time = function(value)
   return "Sending time: "..value
 end
 
-b3_entrypoint_sbe_size_of.poss_resend = 1
 -- Dissect: Poss Resend
 b3_entrypoint_sbe_dissect.poss_resend = function(buffer, offset, packet, parent)
   local length = b3_entrypoint_sbe_size_of.poss_resend
@@ -9271,7 +8986,6 @@ b3_entrypoint_sbe_display.poss_resend = function(value)
   return "Possible resend: UNKNOWN("..value..")"
 end
 
-b3_entrypoint_sbe_size_of.market_segment_id = 1
 -- Dissect: Msg Seq Num
 b3_entrypoint_sbe_dissect.market_segment_id = function(buffer, offset, packet, parent)
   local length = b3_entrypoint_sbe_size_of.market_segment_id
@@ -9289,14 +9003,10 @@ b3_entrypoint_sbe_display.market_segment_id = function(value)
   return "Market segment ID: "..value
 end
 
--- Size: Session Ver ID
-b3_entrypoint_sbe_size_of.session_ver_id = 8
-
 -- Display: Session Ver ID
 b3_entrypoint_sbe_display.session_ver_id = function(value)
   return "Session version ID: "..value
 end
-
 
 -- Dissect: Session Ver ID
 b3_entrypoint_sbe_dissect.session_ver_id = function(buffer, offset, packet, parent)
@@ -9357,9 +9067,6 @@ b3_entrypoint_sbe_dissect.terminate_message = function(buffer, offset, packet, p
   return b3_entrypoint_sbe_dissect.terminate_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Last Incoming Seq No Optional
-b3_entrypoint_sbe_size_of.last_incoming_seq_no_optional = 4
-
 -- Display: Last Incoming Seq No Optional
 b3_entrypoint_sbe_display.last_incoming_seq_no_optional = function(value)
   return "Last incoming sequence number: "..value
@@ -9376,9 +9083,6 @@ b3_entrypoint_sbe_dissect.last_incoming_seq_no_optional = function(buffer, offse
 
   return offset + length, value
 end
-
--- Size: Establishment reject code
-b3_entrypoint_sbe_size_of.establishment_reject_code = 1
 
 -- Display: Establishment reject code
 b3_entrypoint_sbe_display.establishment_reject_code = function(value)
@@ -9506,9 +9210,6 @@ b3_entrypoint_sbe_dissect.establish_reject_message = function(buffer, offset, pa
   return b3_entrypoint_sbe_dissect.establish_reject_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Last Incoming Seq No
-b3_entrypoint_sbe_size_of.last_incoming_seq_no = 4
-
 -- Display: Last Incoming Seq No
 b3_entrypoint_sbe_display.last_incoming_seq_no = function(value)
   return "Last Incoming Seq No: "..value
@@ -9525,9 +9226,6 @@ b3_entrypoint_sbe_dissect.last_incoming_seq_no = function(buffer, offset, packet
 
   return offset + length, value
 end
-
--- Size: Keep Alive Interval
-b3_entrypoint_sbe_size_of.keep_alive_interval = 8
 
 -- Display: Keep Alive Interval
 b3_entrypoint_sbe_display.keep_alive_interval = function(value)
@@ -9715,7 +9413,6 @@ b3_entrypoint_sbe_dissect.desk_id = function(buffer, offset, packet, parent)
   return b3_entrypoint_sbe_dissect.desk_id_fields(buffer, offset, packet, parent)
 end
 
-
 -- Dissect: Memo
 b3_entrypoint_sbe_dissect.memo = function(buffer, offset, packet, parent)
   -- Optionally add struct element to protocol tree
@@ -9728,10 +9425,6 @@ b3_entrypoint_sbe_dissect.memo = function(buffer, offset, packet, parent)
 
   return b3_entrypoint_sbe_dissect.memo_fields(buffer, offset, packet, parent)
 end
-
-
--- Size: Cod Timeout Window
-b3_entrypoint_sbe_size_of.cod_timeout_window = 8
 
 -- Display: Cod Timeout Window
 b3_entrypoint_sbe_display.cod_timeout_window = function(value)
@@ -9749,9 +9442,6 @@ b3_entrypoint_sbe_dissect.cod_timeout_window = function(buffer, offset, packet, 
 
   return offset + length, value
 end
-
--- Size: Cancel On Disconnect Type
-b3_entrypoint_sbe_size_of.cancel_on_disconnect_type = 1
 
 -- Display: Cancel On Disconnect Type
 b3_entrypoint_sbe_display.cancel_on_disconnect_type = function(value)
@@ -9861,9 +9551,6 @@ b3_entrypoint_sbe_dissect.establish_message = function(buffer, offset, packet, p
   return b3_entrypoint_sbe_dissect.establish_message_fields(buffer, offset, packet, parent)
 end
 
--- Size: Current Session Ver ID
-b3_entrypoint_sbe_size_of.current_session_ver_id = 8
-
 -- Display: Current Session Ver ID
 b3_entrypoint_sbe_display.current_session_ver_id = function(value)
   return "Current session version ID: "..value
@@ -9880,9 +9567,6 @@ b3_entrypoint_sbe_dissect.current_session_ver_id = function(buffer, offset, pack
 
   return offset + length, value
 end
-
--- Size: Negotiation reject code
-b3_entrypoint_sbe_size_of.negotiation_reject_code = 1
 
 -- Display: Negotiation reject code
 b3_entrypoint_sbe_display.negotiation_reject_code = function(value)
@@ -10008,9 +9692,6 @@ b3_entrypoint_sbe_dissect.negotiate_reject_message = function(buffer, offset, pa
 
   return b3_entrypoint_sbe_dissect.negotiate_reject_message_fields(buffer, offset, packet, parent)
 end
-
--- Size: Entering Firm
-b3_entrypoint_sbe_size_of.entering_firm = 4
 
 -- Display: Entering Firm
 b3_entrypoint_sbe_display.entering_firm = function(value)
@@ -10189,9 +9870,6 @@ b3_entrypoint_sbe_dissect.client_ip = function(buffer, offset, packet, parent)
   return b3_entrypoint_sbe_dissect.client_ip_fields(buffer, offset, packet, parent)
 end
 
--- Size: Onbehalf Firm
-b3_entrypoint_sbe_size_of.onbehalf_firm = 4
-
 -- Display: Onbehalf Firm
 b3_entrypoint_sbe_display.onbehalf_firm = function(value)
   return "Onbehalf firm: "..value
@@ -10238,7 +9916,6 @@ end
 b3_entrypoint_sbe_display.negotiate_message = function(buffer, offset, size, packet, parent)
   return ""
 end
-
 
 -- Dissect Fields: Negotiate Message
 b3_entrypoint_sbe_dissect.negotiate_message_fields = function(buffer, offset, packet, parent)
@@ -10644,9 +10321,6 @@ b3_entrypoint_sbe_dissect.payload = function(buffer, offset, packet, parent, tem
   return b3_entrypoint_sbe_dissect.payload_branches(buffer, offset, packet, parent, template_id)
 end
 
--- Size: Version
-b3_entrypoint_sbe_size_of.version = 2
-
 -- Display: Version
 b3_entrypoint_sbe_display.version = function(value)
   return "Version: "..value
@@ -10664,9 +10338,6 @@ b3_entrypoint_sbe_dissect.version = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
--- Size: Schema ID
-b3_entrypoint_sbe_size_of.schema_id = 2
-
 -- Display: Schema ID
 b3_entrypoint_sbe_display.schema_id = function(value)
   return "Schema ID: "..value
@@ -10683,9 +10354,6 @@ b3_entrypoint_sbe_dissect.schema_id = function(buffer, offset, packet, parent)
 
   return offset + length, value
 end
-
--- Size: Template ID
-b3_entrypoint_sbe_size_of.template_id = 2
 
 -- Display: Template ID
 b3_entrypoint_sbe_display.template_id = function(value)
@@ -11009,7 +10677,7 @@ end
 function b3_entrypoint_sbe.init()
 end
 
--- Dissector for B3 Equities BinaryEntryPoint Sbe 8.0
+-- Dissector for B3 BinaryEntryPoint Sbe 8.0
 function b3_entrypoint_sbe.dissector(buffer, packet, parent)
 
   -- Set protocol name
@@ -11059,7 +10727,7 @@ verify.version = function(buffer)
   return false
 end
 
--- Dissector Heuristic for B3 Equities BinaryEntryPoint Sbe 8.0
+-- Dissector Heuristic for B3 BinaryEntryPoint Sbe 8.0
 local function b3_entrypoint_sbe_heuristic(buffer, packet, parent)
   -- Verify packet length
   if not verify.b3_entrypoint_sbe_packet_size(buffer) then return false end
@@ -11077,5 +10745,5 @@ local function b3_entrypoint_sbe_heuristic(buffer, packet, parent)
   return true
 end
 
--- Register Heuristic for B3 Equities BinaryEntryPoint Sbe 8.0
+-- Register Heuristic for B3 BinaryEntryPoint Sbe 8.0
 b3_entrypoint_sbe:register_heuristic("tcp", b3_entrypoint_sbe_heuristic)
