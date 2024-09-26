@@ -9,6 +9,7 @@
 --   Semantic version: 8.0.0
 -----------------------------------------------------------------------
 -- History
+-- 2024/09/26:  Wireshark is now able to identify messages from different versions of the protocol
 -- 2024/03/12:  Fix outbound business header size
 --              Add desk ID dissector
 --              Add memo dissector
@@ -11039,24 +11040,14 @@ end
 verify.schema_id = function(buffer)
   -- Attempt to read field
   local value = buffer(8, 2):le_uint()
-
-  if value == 1 then
-    return true
-  end
-
-  return false
+  return value == 1
 end
 
 -- Verify Version Field
 verify.version = function(buffer)
   -- Attempt to read field
   local value = buffer(10, 2):le_uint()
-
-  if value == 2 then
-    return true
-  end
-
-  return false
+  return value >= 1 and value <= 255
 end
 
 -- Dissector Heuristic for B3 Equities BinaryEntryPoint Sbe 8.0
