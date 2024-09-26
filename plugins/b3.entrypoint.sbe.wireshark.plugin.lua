@@ -1,14 +1,17 @@
 -----------------------------------------------------------------------
--- Lua Script Wireshark Dissector - BETA version 0.3
+-- Lua Script Wireshark Dissector - BETA version 0.4
 -----------------------------------------------------------------------
 -- Lua dissectors are an easily edited and modified cross platform dissection solution.
 -- Feel free to modify. Enjoy.
 -- Based on: https://github.com/Open-Markets-Initiative
 -- Protocol:
 --   Organization: B3 S.A. – Brasil, Bolsa, Balcão
---   Semantic version: 8.0.0
+--   Supported versions:
+--     - 8.0.0
+--     - 8.1.1
 -----------------------------------------------------------------------
 -- History
+-- 2024/09/26:  Add support for schema 8.1.1 fields
 -- 2024/09/26:  Wireshark is now able to identify messages from different versions of the protocol
 -- 2024/03/12:  Fix outbound business header size
 --              Add desk ID dissector
@@ -149,6 +152,8 @@ b3_entrypoint_sbe.fields.header_message = ProtoField.new("Header Message", "b3.e
 b3_entrypoint_sbe.fields.inbound_business_header = ProtoField.new("Inbound Business Header", "b3.entrypoint.sbe.inbound_business_header", ftypes.STRING)
 b3_entrypoint_sbe.fields.msg_seq_num = ProtoField.new("Msg Seq Num", "b3.entrypoint.sbe.msg_seq_num", ftypes.UINT32)
 b3_entrypoint_sbe.fields.sending_time = ProtoField.new("Sending Time", "b3.entrypoint.sbe.sending_time", ftypes.UINT64)
+b3_entrypoint_sbe.fields.received_time = ProtoField.new("Received Time", "b3.entrypoint.sbe.received_time", ftypes.UINT64)
+b3_entrypoint_sbe.fields.strategy_id = ProtoField.new("Strategy ID", "b3.entrypoint.sbe.strategy_id", ftypes.UINT32)
 b3_entrypoint_sbe.fields.market_segment_id = ProtoField.new("Market Segment ID", "b3.entrypoint.sbe.market_segment_id", ftypes.UINT8)
 b3_entrypoint_sbe.fields.poss_resend = ProtoField.new("Possible Resend", "b3.entrypoint.sbe.poss_resend", ftypes.STRING)
 b3_entrypoint_sbe.fields.individual_alloc_id = ProtoField.new("Individual Alloc ID", "b3.entrypoint.sbe.individual_alloc_id", ftypes.UINT64)
@@ -221,7 +226,8 @@ b3_entrypoint_sbe.fields.pos_req_id = ProtoField.new("Pos Req ID", "b3.entrypoin
 b3_entrypoint_sbe.fields.pos_req_id_optional = ProtoField.new("Pos Req ID Optional", "b3.entrypoint.sbe.pos_req_id_optional", ftypes.UINT64)
 b3_entrypoint_sbe.fields.pos_trans_type = ProtoField.new("Pos Trans Type", "b3.entrypoint.sbe.pos_trans_type", ftypes.UINT8)
 b3_entrypoint_sbe.fields.pos_type = ProtoField.new("Pos Type", "b3.entrypoint.sbe.pos_type", ftypes.STRING)
-
+b3_entrypoint_sbe.fields.cross_type = ProtoField.new("Cross Type", "b3.entrypoint.sbe.cross_type", ftypes.UINT8)
+b3_entrypoint_sbe.fields.cross_prioritization = ProtoField.new("Cross Prioritization", "b3.entrypoint.sbe.cross_prioritization", ftypes.UINT8)
 b3_entrypoint_sbe.fields.prefix = ProtoField.new("Prefix", "b3.entrypoint.sbe.prefix", ftypes.UINT16)
 b3_entrypoint_sbe.fields.price = ProtoField.new("Price", "b3.entrypoint.sbe.price", ftypes.DOUBLE)
 b3_entrypoint_sbe.fields.price_optional = ProtoField.new("Price Optional", "b3.entrypoint.sbe.price_optional", ftypes.DOUBLE)
@@ -2960,6 +2966,58 @@ b3_entrypoint_sbe_dissect.pos_maint_action = function(buffer, offset, packet, pa
   local display = b3_entrypoint_sbe_display.pos_maint_action(value, buffer, offset, packet, parent)
 
   parent:add(b3_entrypoint_sbe.fields.pos_maint_action, range, value, display)
+
+  return offset + length, value
+end
+
+b3_entrypoint_sbe_size_of.cross_type = 1
+b3_entrypoint_sbe_display.cross_type = function(value)
+  if value == 0 then
+    return "Cross type: NULL"
+  end
+  if value == 1 then
+    return "Cross type: ALL_OR_NONE_CROSS"
+  end
+  if value == 4 then
+    return "Cross type: CROSS_EXECUTED_AGAINST_BOOK_FROM_CLIENT"
+  end
+
+  return "Cross type: UNKNOWN("..value..")"
+end
+
+b3_entrypoint_sbe_dissect.cross_type = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.cross_type
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.cross_type(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.cross_type, range, value, display)
+
+  return offset + length, value
+end
+
+b3_entrypoint_sbe_size_of.cross_prioritization = 1
+b3_entrypoint_sbe_display.cross_prioritization = function(value)
+  if value == 0 then
+    return "Cross prioritization: NONE"
+  end
+  if value == 1 then
+    return "Cross prioritization: BUY_SIDE_IS_PRIORITIZED"
+  end
+  if value == 2 then
+    return "Cross prioritization: SELL_SIDE_IS_PRIORITIZED"
+  end
+
+  return "Cross prioritization: UNKNOWN("..value..")"
+end
+
+b3_entrypoint_sbe_dissect.cross_prioritization = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.cross_prioritization
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.cross_prioritization(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.cross_prioritization, range, value, display)
 
   return offset + length, value
 end
@@ -6946,6 +7004,26 @@ b3_entrypoint_sbe_dissect.market_segment_received_time = function(buffer, offset
   return offset + length, value
 end
 
+b3_entrypoint_sbe_size_of.received_time = 8
+b3_entrypoint_sbe_display.received_time = function(value)
+  if value == UInt64(0xFFFFFFFF, 0xFFFFFFFF) then
+    return "Received time: NULL"
+  end
+
+  return "Received time: "..value
+end
+
+b3_entrypoint_sbe_dissect.received_time = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.received_time
+  local range = buffer(offset, length)
+  local value = range:le_uint64()
+  local display = b3_entrypoint_sbe_display.received_time(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.received_time, range, value, display)
+
+  return offset + length, value
+end
+
 -- Calculate size of: Execution Report Cancel Message
 b3_entrypoint_sbe_size_of.execution_report_cancel_message = function(buffer, offset)
   local index = 0
@@ -7379,6 +7457,28 @@ b3_entrypoint_sbe_size_of.execution_report_new_message = function(buffer, offset
 
   index = index + b3_entrypoint_sbe_size_of.crossid_optional
 
+  if version >= 3 then
+    index = index + b3_entrypoint_sbe_size_of.received_time
+
+    -- padding 1 byte
+    index = index + 3
+
+    index = index + b3_entrypoint_sbe_size_of.ord_tag_id
+
+    index = index + b3_entrypoint_sbe_size_of.investor_id
+
+    index = index + b3_entrypoint_sbe_size_of.cross_type
+
+    index = index + b3_entrypoint_sbe_size_of.cross_prioritization
+
+    index = index + b3_entrypoint_sbe_size_of.mm_protection_reset
+
+    -- padding 1 byte
+    index = index + 1
+
+    index = index + b3_entrypoint_sbe_size_of.strategy_id
+  end
+
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
   index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
@@ -7466,6 +7566,28 @@ b3_entrypoint_sbe_dissect.execution_report_new_message_fields = function(buffer,
 
   -- CrossId Optional: 8 Byte Unsigned Fixed Width Integer
   index, crossid_optional = b3_entrypoint_sbe_dissect.crossid_optional(buffer, index, packet, parent)
+
+  if version >= 3 then
+    index, received_time = b3_entrypoint_sbe_dissect.received_time(buffer, index, packet, parent)
+
+    -- padding 1 byte
+    index = index + 3
+
+    index, ord_tag_id = b3_entrypoint_sbe_dissect.ord_tag_id(buffer, index, packet, parent)
+
+    index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
+
+    index, cross_type = b3_entrypoint_sbe_dissect.cross_type(buffer, index, packet, parent)
+
+    index, cross_prioritization = b3_entrypoint_sbe_dissect.cross_prioritization(buffer, index, packet, parent)
+
+    index, mm_protection_reset = b3_entrypoint_sbe_dissect.mm_protection_reset(buffer, index, packet, parent)
+
+    -- padding 1 byte
+    index = index + 1
+
+    index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+  end
 
   -- Desk ID: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
@@ -9226,6 +9348,22 @@ end
 -- Display: Msg Seq Num
 b3_entrypoint_sbe_display.msg_seq_num = function(value)
   return "Sequence number: "..value
+end
+
+b3_entrypoint_sbe_size_of.strategy_id = 4
+b3_entrypoint_sbe_dissect.strategy_id = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.strategy_id
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.strategy_id(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.strategy_id, range, value, display)
+
+  return offset + length, value
+end
+
+b3_entrypoint_sbe_display.strategy_id = function(value)
+  return "Strategy ID: "..value
 end
 
 b3_entrypoint_sbe_size_of.sending_time = 8
