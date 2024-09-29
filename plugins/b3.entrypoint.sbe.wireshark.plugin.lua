@@ -154,6 +154,7 @@ b3_entrypoint_sbe.fields.msg_seq_num = ProtoField.new("Msg Seq Num", "b3.entrypo
 b3_entrypoint_sbe.fields.sending_time = ProtoField.new("Sending Time", "b3.entrypoint.sbe.sending_time", ftypes.UINT64)
 b3_entrypoint_sbe.fields.received_time = ProtoField.new("Received Time", "b3.entrypoint.sbe.received_time", ftypes.UINT64)
 b3_entrypoint_sbe.fields.strategy_id = ProtoField.new("Strategy ID", "b3.entrypoint.sbe.strategy_id", ftypes.UINT32)
+b3_entrypoint_sbe.fields.action_requested_from_session_id = ProtoField.new("Cancel on behalf", "b3.entrypoint.sbe.action_requested_from_session_id", ftypes.UINT32)
 b3_entrypoint_sbe.fields.market_segment_id = ProtoField.new("Market Segment ID", "b3.entrypoint.sbe.market_segment_id", ftypes.UINT8)
 b3_entrypoint_sbe.fields.poss_resend = ProtoField.new("Possible Resend", "b3.entrypoint.sbe.poss_resend", ftypes.STRING)
 b3_entrypoint_sbe.fields.individual_alloc_id = ProtoField.new("Individual Alloc ID", "b3.entrypoint.sbe.individual_alloc_id", ftypes.UINT64)
@@ -7081,6 +7082,21 @@ b3_entrypoint_sbe_size_of.execution_report_cancel_message = function(buffer, off
 
   index = index + b3_entrypoint_sbe_size_of.max_floor
 
+  if version >= 3 then
+    index = index + b3_entrypoint_sbe_size_of.received_time
+
+    -- padding 1 byte
+    index = index + 3
+
+    index = index + b3_entrypoint_sbe_size_of.ord_tag_id
+
+    index = index + b3_entrypoint_sbe_size_of.investor_id
+
+    index = index + b3_entrypoint_sbe_size_of.strategy_id
+
+    index = index + b3_entrypoint_sbe_size_of.action_requested_from_session_id
+  end
+
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
   index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
@@ -7174,6 +7190,21 @@ b3_entrypoint_sbe_dissect.execution_report_cancel_message_fields = function(buff
 
   -- Max Floor: 8 Byte Unsigned Fixed Width Integer
   index, max_floor = b3_entrypoint_sbe_dissect.max_floor(buffer, index, packet, parent)
+
+  if version >= 3 then
+    index, received_time = b3_entrypoint_sbe_dissect.received_time(buffer, index, packet, parent)
+
+    -- padding 1 byte
+    index = index + 3
+
+    index, ord_tag_id = b3_entrypoint_sbe_dissect.ord_tag_id(buffer, index, packet, parent)
+
+    index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
+
+    index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+
+    index, action_request_from_session_id = b3_entrypoint_sbe_dissect.action_requested_from_session_id(buffer, index, packet, parent)
+  end
 
   -- Desk ID: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
@@ -9400,6 +9431,22 @@ end
 
 b3_entrypoint_sbe_display.strategy_id = function(value)
   return "Strategy ID: "..value
+end
+
+b3_entrypoint_sbe_size_of.action_requested_from_session_id = 4
+b3_entrypoint_sbe_dissect.action_requested_from_session_id = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.action_requested_from_session_id
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.action_requested_from_session_id(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.action_requested_from_session_id, range, value, display)
+
+  return offset + length, value
+end
+
+b3_entrypoint_sbe_display.action_requested_from_session_id = function(value)
+  return "Cancel on behalf: "..value
 end
 
 b3_entrypoint_sbe_size_of.sending_time = 8
