@@ -234,6 +234,7 @@ b3_entrypoint_sbe.fields.price = ProtoField.new("Price", "b3.entrypoint.sbe.pric
 b3_entrypoint_sbe.fields.price_optional = ProtoField.new("Price Optional", "b3.entrypoint.sbe.price_optional", ftypes.DOUBLE)
 b3_entrypoint_sbe.fields.protection_price = ProtoField.new("Protection Price", "b3.entrypoint.sbe.protection_price", ftypes.DOUBLE)
 b3_entrypoint_sbe.fields.quantity = ProtoField.new("Quantity", "b3.entrypoint.sbe.quantity", ftypes.UINT64)
+b3_entrypoint_sbe.fields.max_sweep_qty = ProtoField.new("Max Sweep Quantity", "b3.entrypoint.sbe.max_sweep_qty", ftypes.UINT64)
 b3_entrypoint_sbe.fields.quote_cancel_message = ProtoField.new("Quote Cancel", "b3.entrypoint.sbe.quote_cancel_message", ftypes.STRING)
 b3_entrypoint_sbe.fields.quote_id = ProtoField.new("Quote ID", "b3.entrypoint.sbe.quote_id", ftypes.UINT64)
 b3_entrypoint_sbe.fields.quote_id_optional = ProtoField.new("Quote ID Optional", "b3.entrypoint.sbe.quote_id_optional", ftypes.UINT64)
@@ -1899,6 +1900,26 @@ b3_entrypoint_sbe_dissect.quantity = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
+-- Size: Max Sweep Qty
+b3_entrypoint_sbe_size_of.max_sweep_qty = 8
+
+-- Display: Max Sweep Qty
+b3_entrypoint_sbe_display.max_sweep_qty = function(value)
+  return "Max Sweep Qty: "..value
+end
+
+-- Dissect: Max Sweep Qty
+b3_entrypoint_sbe_dissect.max_sweep_qty = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.max_sweep_qty
+  local range = buffer(offset, length)
+  local value = range:le_uint64()
+  local display = b3_entrypoint_sbe_display.max_sweep_qty(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.max_sweep_qty, range, value, display)
+
+  return offset + length, value
+end
+
 -- Size: Alloc Rej Code
 b3_entrypoint_sbe_size_of.alloc_rej_code = 4
 
@@ -3517,6 +3538,9 @@ b3_entrypoint_sbe_size_of.no_sides_group = function(buffer, offset)
 
   index = index + b3_entrypoint_sbe_size_of.side
 
+  -- Padding 1 Byte
+  index = index + 1
+
   index = index + b3_entrypoint_sbe_size_of.account
 
   index = index + b3_entrypoint_sbe_size_of.entering_firm_optional
@@ -3537,6 +3561,9 @@ b3_entrypoint_sbe_dissect.no_sides_group_fields = function(buffer, offset, packe
 
   -- Side: 1 Byte Ascii String Enum with 2 values
   index, side = b3_entrypoint_sbe_dissect.side(buffer, index, packet, parent)
+
+  -- Padding: 1 Byte
+  index = index + 1
 
   -- Account: 4 Byte Unsigned Fixed Width Integer
   index, account = b3_entrypoint_sbe_dissect.account(buffer, index, packet, parent)
@@ -7760,8 +7787,17 @@ b3_entrypoint_sbe_size_of.new_order_cross_message = function(buffer, offset)
 
   index = index + b3_entrypoint_sbe_size_of.crossed_indicator
 
+  index = index + b3_entrypoint_sbe_size_of.cross_type
+
+  index = index + b3_entrypoint_sbe_size_of.cross_prioritization
+
+  index = index + b3_entrypoint_sbe_size_of.max_sweep_qty
+
   index = index + b3_entrypoint_sbe_size_of.no_sides_groups(buffer, offset + index)
 
+  index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
+
+  index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
 
   return index
 end
@@ -7805,9 +7841,23 @@ b3_entrypoint_sbe_dissect.new_order_cross_message_fields = function(buffer, offs
   -- Crossed Indicator: 2 Byte Unsigned Fixed Width Integer Enum with 4 values
   index, crossed_indicator = b3_entrypoint_sbe_dissect.crossed_indicator(buffer, index, packet, parent)
 
+  -- Cross Type: 1 Byte Ascii String Enum with 3 values
+  index, cross_type = b3_entrypoint_sbe_dissect.cross_type(buffer, index, packet, parent)
+
+  -- Cross Prioritization: 1 Byte Ascii String Enum with 3 values
+  index, cross_prioritization = b3_entrypoint_sbe_dissect.cross_prioritization(buffer, index, packet, parent)
+
+  -- Max Sweep Qty: 8 Byte Unsigned Fixed Width Integer
+  index, max_sweep_qty = b3_entrypoint_sbe_dissect.max_sweep_qty(buffer, index, packet, parent)
+
   -- No Sides Groups: Struct of 2 fields
   index, no_sides_groups = b3_entrypoint_sbe_dissect.no_sides_groups(buffer, index, packet, parent)
 
+  -- Desk ID: 1 Byte (Length) + N Bytes
+  index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
+
+  -- Memo: 1 Byte (Length) + N Bytes
+  index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
 
   return index
 end
