@@ -300,6 +300,9 @@ b3_entrypoint_sbe.fields.var_data = ProtoField.new("Var Data", "b3.entrypoint.sb
 b3_entrypoint_sbe.fields.version = ProtoField.new("Version", "b3.entrypoint.sbe.version", ftypes.UINT16)
 b3_entrypoint_sbe.fields.working_indicator = ProtoField.new("Working Indicator", "b3.entrypoint.sbe.working_indicator", ftypes.UINT8)
 
+b3_entrypoint_sbe.fields.trading_session_id = ProtoField.new("Trading Session ID", "b3.entrypoint.sbe.trading_session_id", ftypes.UINT8)
+b3_entrypoint_sbe.fields.trading_session_sub_id = ProtoField.new("Trading Session Sub ID", "b3.entrypoint.sbe.trading_session_sub_id", ftypes.UINT8)
+b3_entrypoint_sbe.fields.security_trading_status = ProtoField.new("Security Trading Status", "b3.entrypoint.sbe.security_trading_status", ftypes.UINT8)
 -----------------------------------------------------------------------
 -- Declare Dissection Options
 -----------------------------------------------------------------------
@@ -6753,6 +6756,21 @@ b3_entrypoint_sbe_size_of.execution_report_trade_message = function(buffer, offs
 
   index = index + b3_entrypoint_sbe_size_of.order_qty
 
+  index = index + b3_entrypoint_sbe_size_of.trading_session_id
+
+  index = index + b3_entrypoint_sbe_size_of.trading_session_sub_id
+
+  index = index + b3_entrypoint_sbe_size_of.security_trading_status
+
+  index = index + b3_entrypoint_sbe_size_of.cross_type
+
+  index = index + b3_entrypoint_sbe_size_of.cross_prioritization
+
+  -- Padding
+  index = index + 1
+
+  index = index + b3_entrypoint_sbe_size_of.strategy_id
+
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
   index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
@@ -6853,12 +6871,32 @@ b3_entrypoint_sbe_dissect.execution_report_trade_message_fields = function(buffe
   -- Order Qty: 8 Byte Unsigned Fixed Width Integer
   index, order_qty = b3_entrypoint_sbe_dissect.order_qty(buffer, index, packet, parent)
 
+  -- Trading Session ID: 1 Byte Ascii String Enum with 3 values
+  index, trading_session_id = b3_entrypoint_sbe_dissect.trading_session_id(buffer, index, packet, parent)
+
+  -- Trading Session Sub ID: 1 Byte Ascii String Enum with 3 values
+  index, trading_session_sub_id = b3_entrypoint_sbe_dissect.trading_session_sub_id(buffer, index, packet, parent)
+
+  -- Security Trading Status: 1 Byte Ascii String Enum with 4 values
+  index, security_trading_status = b3_entrypoint_sbe_dissect.security_trading_status(buffer, index, packet, parent)
+
+  -- Cross Type: 1 Byte Ascii String Enum with 3 values
+  index, cross_type = b3_entrypoint_sbe_dissect.cross_type(buffer, index, packet, parent)
+
+  -- Cross Prioritization: 1 Byte Ascii String Enum with 3 values
+  index, cross_prioritization = b3_entrypoint_sbe_dissect.cross_prioritization(buffer, index, packet, parent)
+
+  -- Padding
+  index = index + 1
+
+  -- Strategy ID: 4 Byte Unsigned Fixed Width Integer
+  index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+
   -- Desk ID: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
 
   -- Memo: 1 Byte (Length) + N Bytes
   index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
-
 
   return index
 end
@@ -9455,6 +9493,117 @@ b3_entrypoint_sbe_dissect.termination_code = function(buffer, offset, packet, pa
   local display = b3_entrypoint_sbe_display.termination_code(value, buffer, offset, packet, parent)
 
   parent:add(b3_entrypoint_sbe.fields.termination_code, range, value, display)
+
+  return offset + length, value
+end
+
+-- Size: Termination Code
+b3_entrypoint_sbe_size_of.trading_session_id = 1
+
+-- Display: Termination Code
+b3_entrypoint_sbe_display.trading_session_id = function(value)
+  if value == 1 then
+    return "Trading Session: REGULAR_DAY_SESSION"
+  end
+  if value == 6 then
+    return "Trading Session: NON_REGULAR_SESSION"
+  end
+
+  return "Trading Session: UNKNOWN("..value..")"
+end
+
+-- Dissect: Trading Session ID
+b3_entrypoint_sbe_dissect.trading_session_id = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.trading_session_id
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.trading_session_id(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.trading_session_id, range, value, display)
+
+  return offset + length, value
+end
+
+-- Size: Trading Session Sub ID
+b3_entrypoint_sbe_size_of.trading_session_sub_id = 1
+
+-- Display: Trading Session Sub ID
+b3_entrypoint_sbe_display.trading_session_sub_id = function(value)
+  if value == 2 then
+    return "Instrument Group Phase: PAUSE"
+  end
+  if value == 4 then
+    return "Instrument Group Phase: CLOSE"
+  end
+  if value == 17 then
+    return "Instrument Group Phase: OPEN"
+  end
+  if value == 18 then
+    return "Instrument Group Phase: PRE_CLOSE"
+  end
+  if value == 21 then
+    return "Instrument Group Phase: PRE_OPEN"
+  end
+  if value == 101 then
+    return "Instrument Group Phase: FINAL_CLOSING_CALL"
+  end
+
+  return "Instrument Group Phase: UNKNOWN("..value..")"
+end
+
+-- Dissect: Trading Session Sub ID
+b3_entrypoint_sbe_dissect.trading_session_sub_id = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.trading_session_sub_id
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.trading_session_sub_id(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.trading_session_sub_id, range, value, display)
+
+  return offset + length, value
+end
+
+-- Size: Trading Session Sub ID
+b3_entrypoint_sbe_size_of.security_trading_status = 1
+
+-- Display: Trading Session Sub ID
+b3_entrypoint_sbe_display.security_trading_status = function(value)
+  if value == 2 then
+    return "Instrument Status: TRADING_HALT"
+  end
+  if value == 4 then
+    return "Instrument Status: NO_OPEN"
+  end
+  if value == 17 then
+    return "Instrument Status: READY_TO_TRADE"
+  end
+  if value == 18 then
+    return "Instrument Status: FORBIDDEN"
+  end
+  if value == 20 then
+    return "Instrument Status: UNKNOWN_OR_INVALID"
+  end
+  if value == 21 then
+    return "Instrument Status: PRE_OPEN"
+  end
+  if value == 101 then
+    return "Instrument Status: FINAL_CLOSING_CALL"
+  end
+  if value == 110 then
+    return "Instrument Status: RESERVED"
+  end
+
+  return "Instrument Status: UNKNOWN("..value..")"
+end
+
+-- Dissect: Security Trading Status
+b3_entrypoint_sbe_dissect.security_trading_status = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.security_trading_status
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.security_trading_status(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.security_trading_status, range, value, display)
 
   return offset + length, value
 end
