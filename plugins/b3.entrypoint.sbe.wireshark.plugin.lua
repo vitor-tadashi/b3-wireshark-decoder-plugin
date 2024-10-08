@@ -8328,6 +8328,8 @@ b3_entrypoint_sbe_size_of.order_cancel_replace_request_message = function(buffer
 
   index = index + b3_entrypoint_sbe_size_of.investor_id
 
+  index = index + b3_entrypoint_sbe_size_of.strategy_id
+
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
   index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
@@ -8422,6 +8424,9 @@ b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields = function
   -- Investor ID: 2 Byte (Prefix) + 2 (Padding) + 6 Byte (Document)
   index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
 
+  -- Strategy ID: 4 Byte Unsigned Fixed Width Integer
+  index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+
   -- Memo: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
 
@@ -8491,6 +8496,8 @@ b3_entrypoint_sbe_size_of.new_order_single_message = function(buffer, offset)
   index = index + b3_entrypoint_sbe_size_of.custodian_info(buffer, offset + index)
 
   index = index + b3_entrypoint_sbe_size_of.investor_id
+
+  index = index + b3_entrypoint_sbe_size_of.strategy_id
 
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
@@ -8573,6 +8580,9 @@ b3_entrypoint_sbe_dissect.new_order_single_message_fields = function(buffer, off
 
   -- Investor ID: 2 Byte (Prefix) + 2 (Padding) + 6 Byte (Document)
   index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
+
+  -- Strategy ID: 4 Byte Unsigned Fixed Width Integer
+  index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
 
   -- Desk ID: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
