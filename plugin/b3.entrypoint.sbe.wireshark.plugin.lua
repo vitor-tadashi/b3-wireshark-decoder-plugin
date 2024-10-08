@@ -1,14 +1,17 @@
 -----------------------------------------------------------------------
--- Lua Script Wireshark Dissector - BETA version 0.3
+-- Lua Script Wireshark Dissector - BETA version 0.4
 -----------------------------------------------------------------------
 -- Lua dissectors are an easily edited and modified cross platform dissection solution.
 -- Feel free to modify. Enjoy.
 -- Based on: https://github.com/Open-Markets-Initiative
 -- Protocol:
 --   Organization: B3 S.A. – Brasil, Bolsa, Balcão
---   Semantic version: 8.0.0
+--   Supported versions:
+--     - 8.0.0
+--     - 8.1.1
 -----------------------------------------------------------------------
 -- History
+-- 2024/09/26:  Add support for schema 8.1.1 fields
 -- 2024/09/26:  Wireshark is now able to identify messages from different versions of the protocol
 -- 2024/03/12:  Fix outbound business header size
 --              Add desk ID dissector
@@ -25,7 +28,7 @@
 -----------------------------------------------------------------------
 
 -- B3 Equities BinaryEntryPoint Sbe 8.0 Protocol
-local b3_entrypoint_sbe = Proto("b3.entrypoint.sbe", "B3 S.A. – Brasil, Bolsa, Balcão - Entrypoint SBE v8.0.0")
+local b3_entrypoint_sbe = Proto("b3.entrypoint.sbe", "B3 S.A. – Brasil, Bolsa, Balcão - Entrypoint SBE v8.1.1")
 
 -- Component Tables
 local show = {}
@@ -149,6 +152,9 @@ b3_entrypoint_sbe.fields.header_message = ProtoField.new("Header Message", "b3.e
 b3_entrypoint_sbe.fields.inbound_business_header = ProtoField.new("Inbound Business Header", "b3.entrypoint.sbe.inbound_business_header", ftypes.STRING)
 b3_entrypoint_sbe.fields.msg_seq_num = ProtoField.new("Msg Seq Num", "b3.entrypoint.sbe.msg_seq_num", ftypes.UINT32)
 b3_entrypoint_sbe.fields.sending_time = ProtoField.new("Sending Time", "b3.entrypoint.sbe.sending_time", ftypes.UINT64)
+b3_entrypoint_sbe.fields.received_time = ProtoField.new("Received Time", "b3.entrypoint.sbe.received_time", ftypes.UINT64)
+b3_entrypoint_sbe.fields.strategy_id = ProtoField.new("Strategy ID", "b3.entrypoint.sbe.strategy_id", ftypes.UINT32)
+b3_entrypoint_sbe.fields.action_requested_from_session_id = ProtoField.new("Cancel on behalf", "b3.entrypoint.sbe.action_requested_from_session_id", ftypes.UINT32)
 b3_entrypoint_sbe.fields.market_segment_id = ProtoField.new("Market Segment ID", "b3.entrypoint.sbe.market_segment_id", ftypes.UINT8)
 b3_entrypoint_sbe.fields.poss_resend = ProtoField.new("Possible Resend", "b3.entrypoint.sbe.poss_resend", ftypes.STRING)
 b3_entrypoint_sbe.fields.individual_alloc_id = ProtoField.new("Individual Alloc ID", "b3.entrypoint.sbe.individual_alloc_id", ftypes.UINT64)
@@ -221,12 +227,14 @@ b3_entrypoint_sbe.fields.pos_req_id = ProtoField.new("Pos Req ID", "b3.entrypoin
 b3_entrypoint_sbe.fields.pos_req_id_optional = ProtoField.new("Pos Req ID Optional", "b3.entrypoint.sbe.pos_req_id_optional", ftypes.UINT64)
 b3_entrypoint_sbe.fields.pos_trans_type = ProtoField.new("Pos Trans Type", "b3.entrypoint.sbe.pos_trans_type", ftypes.UINT8)
 b3_entrypoint_sbe.fields.pos_type = ProtoField.new("Pos Type", "b3.entrypoint.sbe.pos_type", ftypes.STRING)
-
+b3_entrypoint_sbe.fields.cross_type = ProtoField.new("Cross Type", "b3.entrypoint.sbe.cross_type", ftypes.UINT8)
+b3_entrypoint_sbe.fields.cross_prioritization = ProtoField.new("Cross Prioritization", "b3.entrypoint.sbe.cross_prioritization", ftypes.UINT8)
 b3_entrypoint_sbe.fields.prefix = ProtoField.new("Prefix", "b3.entrypoint.sbe.prefix", ftypes.UINT16)
 b3_entrypoint_sbe.fields.price = ProtoField.new("Price", "b3.entrypoint.sbe.price", ftypes.DOUBLE)
 b3_entrypoint_sbe.fields.price_optional = ProtoField.new("Price Optional", "b3.entrypoint.sbe.price_optional", ftypes.DOUBLE)
 b3_entrypoint_sbe.fields.protection_price = ProtoField.new("Protection Price", "b3.entrypoint.sbe.protection_price", ftypes.DOUBLE)
 b3_entrypoint_sbe.fields.quantity = ProtoField.new("Quantity", "b3.entrypoint.sbe.quantity", ftypes.UINT64)
+b3_entrypoint_sbe.fields.max_sweep_qty = ProtoField.new("Max Sweep Quantity", "b3.entrypoint.sbe.max_sweep_qty", ftypes.UINT64)
 b3_entrypoint_sbe.fields.quote_cancel_message = ProtoField.new("Quote Cancel", "b3.entrypoint.sbe.quote_cancel_message", ftypes.STRING)
 b3_entrypoint_sbe.fields.quote_id = ProtoField.new("Quote ID", "b3.entrypoint.sbe.quote_id", ftypes.UINT64)
 b3_entrypoint_sbe.fields.quote_id_optional = ProtoField.new("Quote ID Optional", "b3.entrypoint.sbe.quote_id_optional", ftypes.UINT64)
@@ -292,6 +300,9 @@ b3_entrypoint_sbe.fields.var_data = ProtoField.new("Var Data", "b3.entrypoint.sb
 b3_entrypoint_sbe.fields.version = ProtoField.new("Version", "b3.entrypoint.sbe.version", ftypes.UINT16)
 b3_entrypoint_sbe.fields.working_indicator = ProtoField.new("Working Indicator", "b3.entrypoint.sbe.working_indicator", ftypes.UINT8)
 
+b3_entrypoint_sbe.fields.trading_session_id = ProtoField.new("Trading Session ID", "b3.entrypoint.sbe.trading_session_id", ftypes.UINT8)
+b3_entrypoint_sbe.fields.trading_session_sub_id = ProtoField.new("Trading Session Sub ID", "b3.entrypoint.sbe.trading_session_sub_id", ftypes.UINT8)
+b3_entrypoint_sbe.fields.security_trading_status = ProtoField.new("Security Trading Status", "b3.entrypoint.sbe.security_trading_status", ftypes.UINT8)
 -----------------------------------------------------------------------
 -- Declare Dissection Options
 -----------------------------------------------------------------------
@@ -1892,6 +1903,26 @@ b3_entrypoint_sbe_dissect.quantity = function(buffer, offset, packet, parent)
   return offset + length, value
 end
 
+-- Size: Max Sweep Qty
+b3_entrypoint_sbe_size_of.max_sweep_qty = 8
+
+-- Display: Max Sweep Qty
+b3_entrypoint_sbe_display.max_sweep_qty = function(value)
+  return "Max Sweep Qty: "..value
+end
+
+-- Dissect: Max Sweep Qty
+b3_entrypoint_sbe_dissect.max_sweep_qty = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.max_sweep_qty
+  local range = buffer(offset, length)
+  local value = range:le_uint64()
+  local display = b3_entrypoint_sbe_display.max_sweep_qty(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.max_sweep_qty, range, value, display)
+
+  return offset + length, value
+end
+
 -- Size: Alloc Rej Code
 b3_entrypoint_sbe_size_of.alloc_rej_code = 4
 
@@ -2964,6 +2995,58 @@ b3_entrypoint_sbe_dissect.pos_maint_action = function(buffer, offset, packet, pa
   return offset + length, value
 end
 
+b3_entrypoint_sbe_size_of.cross_type = 1
+b3_entrypoint_sbe_display.cross_type = function(value)
+  if value == 0 then
+    return "Cross type: NULL"
+  end
+  if value == 1 then
+    return "Cross type: ALL_OR_NONE_CROSS"
+  end
+  if value == 4 then
+    return "Cross type: CROSS_EXECUTED_AGAINST_BOOK_FROM_CLIENT"
+  end
+
+  return "Cross type: UNKNOWN("..value..")"
+end
+
+b3_entrypoint_sbe_dissect.cross_type = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.cross_type
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.cross_type(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.cross_type, range, value, display)
+
+  return offset + length, value
+end
+
+b3_entrypoint_sbe_size_of.cross_prioritization = 1
+b3_entrypoint_sbe_display.cross_prioritization = function(value)
+  if value == 0 then
+    return "Cross prioritization: NONE"
+  end
+  if value == 1 then
+    return "Cross prioritization: BUY_SIDE_IS_PRIORITIZED"
+  end
+  if value == 2 then
+    return "Cross prioritization: SELL_SIDE_IS_PRIORITIZED"
+  end
+
+  return "Cross prioritization: UNKNOWN("..value..")"
+end
+
+b3_entrypoint_sbe_dissect.cross_prioritization = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.cross_prioritization
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.cross_prioritization(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.cross_prioritization, range, value, display)
+
+  return offset + length, value
+end
+
 -- Size: Pos Trans Type
 b3_entrypoint_sbe_size_of.pos_trans_type = 1
 
@@ -3458,6 +3541,9 @@ b3_entrypoint_sbe_size_of.no_sides_group = function(buffer, offset)
 
   index = index + b3_entrypoint_sbe_size_of.side
 
+  -- Padding 1 Byte
+  index = index + 1
+
   index = index + b3_entrypoint_sbe_size_of.account
 
   index = index + b3_entrypoint_sbe_size_of.entering_firm_optional
@@ -3478,6 +3564,9 @@ b3_entrypoint_sbe_dissect.no_sides_group_fields = function(buffer, offset, packe
 
   -- Side: 1 Byte Ascii String Enum with 2 values
   index, side = b3_entrypoint_sbe_dissect.side(buffer, index, packet, parent)
+
+  -- Padding: 1 Byte
+  index = index + 1
 
   -- Account: 4 Byte Unsigned Fixed Width Integer
   index, account = b3_entrypoint_sbe_dissect.account(buffer, index, packet, parent)
@@ -6667,6 +6756,21 @@ b3_entrypoint_sbe_size_of.execution_report_trade_message = function(buffer, offs
 
   index = index + b3_entrypoint_sbe_size_of.order_qty
 
+  index = index + b3_entrypoint_sbe_size_of.trading_session_id
+
+  index = index + b3_entrypoint_sbe_size_of.trading_session_sub_id
+
+  index = index + b3_entrypoint_sbe_size_of.security_trading_status
+
+  index = index + b3_entrypoint_sbe_size_of.cross_type
+
+  index = index + b3_entrypoint_sbe_size_of.cross_prioritization
+
+  -- Padding
+  index = index + 1
+
+  index = index + b3_entrypoint_sbe_size_of.strategy_id
+
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
   index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
@@ -6767,12 +6871,32 @@ b3_entrypoint_sbe_dissect.execution_report_trade_message_fields = function(buffe
   -- Order Qty: 8 Byte Unsigned Fixed Width Integer
   index, order_qty = b3_entrypoint_sbe_dissect.order_qty(buffer, index, packet, parent)
 
+  -- Trading Session ID: 1 Byte Ascii String Enum with 3 values
+  index, trading_session_id = b3_entrypoint_sbe_dissect.trading_session_id(buffer, index, packet, parent)
+
+  -- Trading Session Sub ID: 1 Byte Ascii String Enum with 3 values
+  index, trading_session_sub_id = b3_entrypoint_sbe_dissect.trading_session_sub_id(buffer, index, packet, parent)
+
+  -- Security Trading Status: 1 Byte Ascii String Enum with 4 values
+  index, security_trading_status = b3_entrypoint_sbe_dissect.security_trading_status(buffer, index, packet, parent)
+
+  -- Cross Type: 1 Byte Ascii String Enum with 3 values
+  index, cross_type = b3_entrypoint_sbe_dissect.cross_type(buffer, index, packet, parent)
+
+  -- Cross Prioritization: 1 Byte Ascii String Enum with 3 values
+  index, cross_prioritization = b3_entrypoint_sbe_dissect.cross_prioritization(buffer, index, packet, parent)
+
+  -- Padding
+  index = index + 1
+
+  -- Strategy ID: 4 Byte Unsigned Fixed Width Integer
+  index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+
   -- Desk ID: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
 
   -- Memo: 1 Byte (Length) + N Bytes
   index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
-
 
   return index
 end
@@ -6946,6 +7070,26 @@ b3_entrypoint_sbe_dissect.market_segment_received_time = function(buffer, offset
   return offset + length, value
 end
 
+b3_entrypoint_sbe_size_of.received_time = 8
+b3_entrypoint_sbe_display.received_time = function(value)
+  if value == UInt64(0xFFFFFFFF, 0xFFFFFFFF) then
+    return "Received time: NULL"
+  end
+
+  return "Received time: "..value
+end
+
+b3_entrypoint_sbe_dissect.received_time = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.received_time
+  local range = buffer(offset, length)
+  local value = range:le_uint64()
+  local display = b3_entrypoint_sbe_display.received_time(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.received_time, range, value, display)
+
+  return offset + length, value
+end
+
 -- Calculate size of: Execution Report Cancel Message
 b3_entrypoint_sbe_size_of.execution_report_cancel_message = function(buffer, offset)
   local index = 0
@@ -7002,6 +7146,21 @@ b3_entrypoint_sbe_size_of.execution_report_cancel_message = function(buffer, off
   index = index + b3_entrypoint_sbe_size_of.min_qty
 
   index = index + b3_entrypoint_sbe_size_of.max_floor
+
+  if version >= 3 then
+    index = index + b3_entrypoint_sbe_size_of.received_time
+
+    -- padding 1 byte
+    index = index + 3
+
+    index = index + b3_entrypoint_sbe_size_of.ord_tag_id
+
+    index = index + b3_entrypoint_sbe_size_of.investor_id
+
+    index = index + b3_entrypoint_sbe_size_of.strategy_id
+
+    index = index + b3_entrypoint_sbe_size_of.action_requested_from_session_id
+  end
 
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
@@ -7096,6 +7255,21 @@ b3_entrypoint_sbe_dissect.execution_report_cancel_message_fields = function(buff
 
   -- Max Floor: 8 Byte Unsigned Fixed Width Integer
   index, max_floor = b3_entrypoint_sbe_dissect.max_floor(buffer, index, packet, parent)
+
+  if version >= 3 then
+    index, received_time = b3_entrypoint_sbe_dissect.received_time(buffer, index, packet, parent)
+
+    -- padding 1 byte
+    index = index + 3
+
+    index, ord_tag_id = b3_entrypoint_sbe_dissect.ord_tag_id(buffer, index, packet, parent)
+
+    index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
+
+    index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+
+    index, action_request_from_session_id = b3_entrypoint_sbe_dissect.action_requested_from_session_id(buffer, index, packet, parent)
+  end
 
   -- Desk ID: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
@@ -7211,6 +7385,24 @@ b3_entrypoint_sbe_size_of.execution_report_modify_message = function(buffer, off
 
   index = index + b3_entrypoint_sbe_size_of.max_floor
 
+  if version >= 3 then
+    index = index + b3_entrypoint_sbe_size_of.received_time
+
+    -- padding 1 byte
+    index = index + 3
+
+    index = index + b3_entrypoint_sbe_size_of.ord_tag_id
+
+    index = index + b3_entrypoint_sbe_size_of.investor_id
+
+    index = index + b3_entrypoint_sbe_size_of.mm_protection_reset
+
+    -- padding 1 byte
+    index = index + 1
+
+    index = index + b3_entrypoint_sbe_size_of.strategy_id
+  end
+
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
   index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
@@ -7305,6 +7497,24 @@ b3_entrypoint_sbe_dissect.execution_report_modify_message_fields = function(buff
   -- Max Floor: 8 Byte Unsigned Fixed Width Integer
   index, max_floor = b3_entrypoint_sbe_dissect.max_floor(buffer, index, packet, parent)
 
+  if version >= 3 then
+    index, received_time = b3_entrypoint_sbe_dissect.received_time(buffer, index, packet, parent)
+
+    -- padding 1 byte
+    index = index + 3
+
+    index, ord_tag_id = b3_entrypoint_sbe_dissect.ord_tag_id(buffer, index, packet, parent)
+
+    index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
+
+    index, mm_protection_reset = b3_entrypoint_sbe_dissect.mm_protection_reset(buffer, index, packet, parent)
+
+    -- padding 1 byte
+    index = index + 1
+
+    index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+  end
+
   -- Desk ID: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
 
@@ -7378,6 +7588,28 @@ b3_entrypoint_sbe_size_of.execution_report_new_message = function(buffer, offset
   index = index + b3_entrypoint_sbe_size_of.max_floor
 
   index = index + b3_entrypoint_sbe_size_of.crossid_optional
+
+  if version >= 3 then
+    index = index + b3_entrypoint_sbe_size_of.received_time
+
+    -- padding 1 byte
+    index = index + 3
+
+    index = index + b3_entrypoint_sbe_size_of.ord_tag_id
+
+    index = index + b3_entrypoint_sbe_size_of.investor_id
+
+    index = index + b3_entrypoint_sbe_size_of.cross_type
+
+    index = index + b3_entrypoint_sbe_size_of.cross_prioritization
+
+    index = index + b3_entrypoint_sbe_size_of.mm_protection_reset
+
+    -- padding 1 byte
+    index = index + 1
+
+    index = index + b3_entrypoint_sbe_size_of.strategy_id
+  end
 
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
@@ -7466,6 +7698,28 @@ b3_entrypoint_sbe_dissect.execution_report_new_message_fields = function(buffer,
 
   -- CrossId Optional: 8 Byte Unsigned Fixed Width Integer
   index, crossid_optional = b3_entrypoint_sbe_dissect.crossid_optional(buffer, index, packet, parent)
+
+  if version >= 3 then
+    index, received_time = b3_entrypoint_sbe_dissect.received_time(buffer, index, packet, parent)
+
+    -- padding 1 byte
+    index = index + 3
+
+    index, ord_tag_id = b3_entrypoint_sbe_dissect.ord_tag_id(buffer, index, packet, parent)
+
+    index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
+
+    index, cross_type = b3_entrypoint_sbe_dissect.cross_type(buffer, index, packet, parent)
+
+    index, cross_prioritization = b3_entrypoint_sbe_dissect.cross_prioritization(buffer, index, packet, parent)
+
+    index, mm_protection_reset = b3_entrypoint_sbe_dissect.mm_protection_reset(buffer, index, packet, parent)
+
+    -- padding 1 byte
+    index = index + 1
+
+    index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+  end
 
   -- Desk ID: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
@@ -7571,8 +7825,17 @@ b3_entrypoint_sbe_size_of.new_order_cross_message = function(buffer, offset)
 
   index = index + b3_entrypoint_sbe_size_of.crossed_indicator
 
+  index = index + b3_entrypoint_sbe_size_of.cross_type
+
+  index = index + b3_entrypoint_sbe_size_of.cross_prioritization
+
+  index = index + b3_entrypoint_sbe_size_of.max_sweep_qty
+
   index = index + b3_entrypoint_sbe_size_of.no_sides_groups(buffer, offset + index)
 
+  index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
+
+  index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
 
   return index
 end
@@ -7616,9 +7879,23 @@ b3_entrypoint_sbe_dissect.new_order_cross_message_fields = function(buffer, offs
   -- Crossed Indicator: 2 Byte Unsigned Fixed Width Integer Enum with 4 values
   index, crossed_indicator = b3_entrypoint_sbe_dissect.crossed_indicator(buffer, index, packet, parent)
 
+  -- Cross Type: 1 Byte Ascii String Enum with 3 values
+  index, cross_type = b3_entrypoint_sbe_dissect.cross_type(buffer, index, packet, parent)
+
+  -- Cross Prioritization: 1 Byte Ascii String Enum with 3 values
+  index, cross_prioritization = b3_entrypoint_sbe_dissect.cross_prioritization(buffer, index, packet, parent)
+
+  -- Max Sweep Qty: 8 Byte Unsigned Fixed Width Integer
+  index, max_sweep_qty = b3_entrypoint_sbe_dissect.max_sweep_qty(buffer, index, packet, parent)
+
   -- No Sides Groups: Struct of 2 fields
   index, no_sides_groups = b3_entrypoint_sbe_dissect.no_sides_groups(buffer, index, packet, parent)
 
+  -- Desk ID: 1 Byte (Length) + N Bytes
+  index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
+
+  -- Memo: 1 Byte (Length) + N Bytes
+  index, memo = b3_entrypoint_sbe_dissect.memo(buffer, index, packet, parent)
 
   return index
 end
@@ -8139,6 +8416,8 @@ b3_entrypoint_sbe_size_of.order_cancel_replace_request_message = function(buffer
 
   index = index + b3_entrypoint_sbe_size_of.investor_id
 
+  index = index + b3_entrypoint_sbe_size_of.strategy_id
+
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
   index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
@@ -8233,6 +8512,9 @@ b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields = function
   -- Investor ID: 2 Byte (Prefix) + 2 (Padding) + 6 Byte (Document)
   index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
 
+  -- Strategy ID: 4 Byte Unsigned Fixed Width Integer
+  index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+
   -- Memo: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
 
@@ -8302,6 +8584,8 @@ b3_entrypoint_sbe_size_of.new_order_single_message = function(buffer, offset)
   index = index + b3_entrypoint_sbe_size_of.custodian_info(buffer, offset + index)
 
   index = index + b3_entrypoint_sbe_size_of.investor_id
+
+  index = index + b3_entrypoint_sbe_size_of.strategy_id
 
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
@@ -8384,6 +8668,9 @@ b3_entrypoint_sbe_dissect.new_order_single_message_fields = function(buffer, off
 
   -- Investor ID: 2 Byte (Prefix) + 2 (Padding) + 6 Byte (Document)
   index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
+
+  -- Strategy ID: 4 Byte Unsigned Fixed Width Integer
+  index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
 
   -- Desk ID: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
@@ -9210,6 +9497,117 @@ b3_entrypoint_sbe_dissect.termination_code = function(buffer, offset, packet, pa
   return offset + length, value
 end
 
+-- Size: Termination Code
+b3_entrypoint_sbe_size_of.trading_session_id = 1
+
+-- Display: Termination Code
+b3_entrypoint_sbe_display.trading_session_id = function(value)
+  if value == 1 then
+    return "Trading Session: REGULAR_DAY_SESSION"
+  end
+  if value == 6 then
+    return "Trading Session: NON_REGULAR_SESSION"
+  end
+
+  return "Trading Session: UNKNOWN("..value..")"
+end
+
+-- Dissect: Trading Session ID
+b3_entrypoint_sbe_dissect.trading_session_id = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.trading_session_id
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.trading_session_id(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.trading_session_id, range, value, display)
+
+  return offset + length, value
+end
+
+-- Size: Trading Session Sub ID
+b3_entrypoint_sbe_size_of.trading_session_sub_id = 1
+
+-- Display: Trading Session Sub ID
+b3_entrypoint_sbe_display.trading_session_sub_id = function(value)
+  if value == 2 then
+    return "Instrument Group Phase: PAUSE"
+  end
+  if value == 4 then
+    return "Instrument Group Phase: CLOSE"
+  end
+  if value == 17 then
+    return "Instrument Group Phase: OPEN"
+  end
+  if value == 18 then
+    return "Instrument Group Phase: PRE_CLOSE"
+  end
+  if value == 21 then
+    return "Instrument Group Phase: PRE_OPEN"
+  end
+  if value == 101 then
+    return "Instrument Group Phase: FINAL_CLOSING_CALL"
+  end
+
+  return "Instrument Group Phase: UNKNOWN("..value..")"
+end
+
+-- Dissect: Trading Session Sub ID
+b3_entrypoint_sbe_dissect.trading_session_sub_id = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.trading_session_sub_id
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.trading_session_sub_id(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.trading_session_sub_id, range, value, display)
+
+  return offset + length, value
+end
+
+-- Size: Trading Session Sub ID
+b3_entrypoint_sbe_size_of.security_trading_status = 1
+
+-- Display: Trading Session Sub ID
+b3_entrypoint_sbe_display.security_trading_status = function(value)
+  if value == 2 then
+    return "Instrument Status: TRADING_HALT"
+  end
+  if value == 4 then
+    return "Instrument Status: NO_OPEN"
+  end
+  if value == 17 then
+    return "Instrument Status: READY_TO_TRADE"
+  end
+  if value == 18 then
+    return "Instrument Status: FORBIDDEN"
+  end
+  if value == 20 then
+    return "Instrument Status: UNKNOWN_OR_INVALID"
+  end
+  if value == 21 then
+    return "Instrument Status: PRE_OPEN"
+  end
+  if value == 101 then
+    return "Instrument Status: FINAL_CLOSING_CALL"
+  end
+  if value == 110 then
+    return "Instrument Status: RESERVED"
+  end
+
+  return "Instrument Status: UNKNOWN("..value..")"
+end
+
+-- Dissect: Security Trading Status
+b3_entrypoint_sbe_dissect.security_trading_status = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.security_trading_status
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.security_trading_status(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.security_trading_status, range, value, display)
+
+  return offset + length, value
+end
+
 b3_entrypoint_sbe_size_of.msg_seq_num = 4
 -- Dissect: Msg Seq Num
 b3_entrypoint_sbe_dissect.msg_seq_num = function(buffer, offset, packet, parent)
@@ -9226,6 +9624,38 @@ end
 -- Display: Msg Seq Num
 b3_entrypoint_sbe_display.msg_seq_num = function(value)
   return "Sequence number: "..value
+end
+
+b3_entrypoint_sbe_size_of.strategy_id = 4
+b3_entrypoint_sbe_dissect.strategy_id = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.strategy_id
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.strategy_id(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.strategy_id, range, value, display)
+
+  return offset + length, value
+end
+
+b3_entrypoint_sbe_display.strategy_id = function(value)
+  return "Strategy ID: "..value
+end
+
+b3_entrypoint_sbe_size_of.action_requested_from_session_id = 4
+b3_entrypoint_sbe_dissect.action_requested_from_session_id = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.action_requested_from_session_id
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.action_requested_from_session_id(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.action_requested_from_session_id, range, value, display)
+
+  return offset + length, value
+end
+
+b3_entrypoint_sbe_display.action_requested_from_session_id = function(value)
+  return "Cancel on behalf: "..value
 end
 
 b3_entrypoint_sbe_size_of.sending_time = 8
