@@ -6452,6 +6452,19 @@ b3_entrypoint_sbe_size_of.execution_report_reject_message = function(buffer, off
 
   index = index + b3_entrypoint_sbe_size_of.crossed_indicator
 
+  if version >= 3 then
+    index = index + b3_entrypoint_sbe_size_of.received_time
+
+    -- padding 3 byte
+    index = index + 3
+
+    index = index + b3_entrypoint_sbe_size_of.ord_tag_id
+
+    index = index + b3_entrypoint_sbe_size_of.investor_id
+
+    index = index + b3_entrypoint_sbe_size_of.strategy_id
+  end
+
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
   index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
@@ -6535,6 +6548,19 @@ b3_entrypoint_sbe_dissect.execution_report_reject_message_fields = function(buff
 
   -- Crossed Indicator: 2 Byte Unsigned Fixed Width Integer Enum with 4 values
   index, crossed_indicator = b3_entrypoint_sbe_dissect.crossed_indicator(buffer, index, packet, parent)
+
+  if version >= 3 then
+    index, received_time = b3_entrypoint_sbe_dissect.received_time(buffer, index, packet, parent)
+
+    -- padding 1 byte
+    index = index + 3
+
+    index, ord_tag_id = b3_entrypoint_sbe_dissect.ord_tag_id(buffer, index, packet, parent)
+
+    index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
+
+    index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+  end
 
   -- Desk ID: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
@@ -7160,8 +7186,8 @@ b3_entrypoint_sbe_size_of.execution_report_cancel_message = function(buffer, off
     index = index + b3_entrypoint_sbe_size_of.strategy_id
 
     index = index + b3_entrypoint_sbe_size_of.action_requested_from_session_id
-  end
 
+  end
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
   index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
