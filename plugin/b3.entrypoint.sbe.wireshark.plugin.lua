@@ -8478,21 +8478,19 @@ b3_entrypoint_sbe_size_of.order_cancel_replace_request_message = function(buffer
 
   index = index + b3_entrypoint_sbe_size_of.security_id
 
-  index = index + b3_entrypoint_sbe_size_of.security_exchange
-
   index = index + b3_entrypoint_sbe_size_of.side
 
   index = index + b3_entrypoint_sbe_size_of.ordtype
 
-  index = index + b3_entrypoint_sbe_size_of.time_in_force_optional
+  index = index + b3_entrypoint_sbe_size_of.time_in_force
 
   index = index + b3_entrypoint_sbe_size_of.routing_instruction
 
   index = index + b3_entrypoint_sbe_size_of.order_qty
 
-  index = index + b3_entrypoint_sbe_size_of.price_optional
+  index = index + b3_entrypoint_sbe_size_of.price
 
-  index = index + b3_entrypoint_sbe_size_of.order_id_optional
+  index = index + b3_entrypoint_sbe_size_of.order_id
 
   index = index + b3_entrypoint_sbe_size_of.origclordid
 
@@ -8502,7 +8500,7 @@ b3_entrypoint_sbe_size_of.order_cancel_replace_request_message = function(buffer
 
   index = index + b3_entrypoint_sbe_size_of.max_floor
 
-  index = index + b3_entrypoint_sbe_size_of.executing_trader_optional
+  index = index + b3_entrypoint_sbe_size_of.executing_trader
 
   index = index + b3_entrypoint_sbe_size_of.account_type
 
@@ -8512,7 +8510,9 @@ b3_entrypoint_sbe_size_of.order_cancel_replace_request_message = function(buffer
 
   index = index + b3_entrypoint_sbe_size_of.investor_id
 
-  index = index + b3_entrypoint_sbe_size_of.strategy_id
+  if version >= 3 then
+    index = index + b3_entrypoint_sbe_size_of.strategy_id
+  end
 
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
@@ -8557,9 +8557,6 @@ b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields = function
   -- Security ID: 8 Byte Unsigned Fixed Width Integer
   index, security_id = b3_entrypoint_sbe_dissect.security_id(buffer, index, packet, parent)
 
-  -- Security Exchange: 4 Byte Ascii String
-  index, security_exchange = b3_entrypoint_sbe_dissect.security_exchange(buffer, index, packet, parent)
-
   -- Side: 1 Byte Ascii String Enum with 2 values
   index, side = b3_entrypoint_sbe_dissect.side(buffer, index, packet, parent)
 
@@ -8567,7 +8564,7 @@ b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields = function
   index, ordtype = b3_entrypoint_sbe_dissect.ordtype(buffer, index, packet, parent)
 
   -- Time In Force Optional: 1 Byte Ascii String Enum with 8 values
-  index, time_in_force_optional = b3_entrypoint_sbe_dissect.time_in_force_optional(buffer, index, packet, parent)
+  index, time_in_force_optional = b3_entrypoint_sbe_dissect.time_in_force(buffer, index, packet, parent)
 
   -- Routing Instruction: 1 Byte Unsigned Fixed Width Integer Enum with 5 values
   index, routing_instruction = b3_entrypoint_sbe_dissect.routing_instruction(buffer, index, packet, parent)
@@ -8576,10 +8573,10 @@ b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields = function
   index, order_qty = b3_entrypoint_sbe_dissect.order_qty(buffer, index, packet, parent)
 
   -- Price Optional: 8 Byte Signed Fixed Width Integer Nullable
-  index, price_optional = b3_entrypoint_sbe_dissect.price_optional(buffer, index, packet, parent)
+  index, price_optional = b3_entrypoint_sbe_dissect.price(buffer, index, packet, parent)
 
   -- Order ID Optional: 8 Byte Unsigned Fixed Width Integer
-  index, order_id_optional = b3_entrypoint_sbe_dissect.order_id_optional(buffer, index, packet, parent)
+  index, order_id_optional = b3_entrypoint_sbe_dissect.order_id(buffer, index, packet, parent)
 
   -- OrigClOrdId: 8 Byte Unsigned Fixed Width Integer
   index, origclordid = b3_entrypoint_sbe_dissect.origclordid(buffer, index, packet, parent)
@@ -8594,7 +8591,7 @@ b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields = function
   index, max_floor = b3_entrypoint_sbe_dissect.max_floor(buffer, index, packet, parent)
 
   -- Executing Trader Optional: 5 Byte Ascii String
-  index, executing_trader_optional = b3_entrypoint_sbe_dissect.executing_trader_optional(buffer, index, packet, parent)
+  index, executing_trader_optional = b3_entrypoint_sbe_dissect.executing_trader(buffer, index, packet, parent)
 
   -- Account Type: 1 Byte Unsigned Fixed Width Integer Enum with 3 values
   index, account_type = b3_entrypoint_sbe_dissect.account_type(buffer, index, packet, parent)
@@ -8608,8 +8605,10 @@ b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields = function
   -- Investor ID: 2 Byte (Prefix) + 2 (Padding) + 6 Byte (Document)
   index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
 
-  -- Strategy ID: 4 Byte Unsigned Fixed Width Integer
-  index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+  if version >= 3 then
+    -- Strategy ID: 4 Byte Unsigned Fixed Width Integer
+    index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+  end
 
   -- Memo: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
@@ -8622,13 +8621,10 @@ end
 
 -- Dissect: Order Cancel Replace Request Message
 b3_entrypoint_sbe_dissect.order_cancel_replace_request_message = function(buffer, offset, packet, parent)
-  -- Optionally add struct element to protocol tree
-  if show.order_cancel_replace_request_message then
-    local length = b3_entrypoint_sbe_size_of.order_cancel_replace_request_message(buffer, offset)
-    local range = buffer(offset, length)
-    local display = b3_entrypoint_sbe_display.order_cancel_replace_request_message(buffer, packet, parent)
-    parent = parent:add(b3_entrypoint_sbe.fields.order_cancel_replace_request_message, range, display)
-  end
+  local length = b3_entrypoint_sbe_size_of.order_cancel_replace_request_message(buffer, offset)
+  local range = buffer(offset, length)
+  local display = b3_entrypoint_sbe_display.order_cancel_replace_request_message(buffer, packet, parent)
+  parent = parent:add(b3_entrypoint_sbe.fields.order_cancel_replace_request_message, range, display)
 
   return b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields(buffer, offset, packet, parent)
 end
