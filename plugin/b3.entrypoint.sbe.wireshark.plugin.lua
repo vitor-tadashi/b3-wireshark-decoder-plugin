@@ -159,6 +159,7 @@ b3_entrypoint_sbe.fields.market_segment_id = ProtoField.new("Market Segment ID",
 b3_entrypoint_sbe.fields.poss_resend = ProtoField.new("Possible Resend", "b3.entrypoint.sbe.poss_resend", ftypes.STRING)
 b3_entrypoint_sbe.fields.individual_alloc_id = ProtoField.new("Individual Alloc ID", "b3.entrypoint.sbe.individual_alloc_id", ftypes.UINT64)
 b3_entrypoint_sbe.fields.investor_id = ProtoField.new("Investor ID", "b3.entrypoint.sbe.investor_id", ftypes.STRING)
+b3_entrypoint_sbe.fields.implied_event_id = ProtoField.new("Implied Event ID", "b3.entrypoint.sbe.implied_event_id", ftypes.STRING)
 b3_entrypoint_sbe.fields.keep_alive_interval = ProtoField.new("Keep Alive Interval", "b3.entrypoint.sbe.keep_alive_interval", ftypes.UINT64)
 b3_entrypoint_sbe.fields.last_incoming_seq_no = ProtoField.new("Last Incoming Seq No", "b3.entrypoint.sbe.last_incoming_seq_no", ftypes.UINT32)
 b3_entrypoint_sbe.fields.last_incoming_seq_no_optional = ProtoField.new("Last Incoming Seq No Optional", "b3.entrypoint.sbe.last_incoming_seq_no_optional", ftypes.UINT32)
@@ -295,6 +296,8 @@ b3_entrypoint_sbe.fields.trade_date = ProtoField.new("Trade Date", "b3.entrypoin
 b3_entrypoint_sbe.fields.trade_date_optional = ProtoField.new("Trade Date Optional", "b3.entrypoint.sbe.trade_date_optional", ftypes.UINT16)
 b3_entrypoint_sbe.fields.trade_id = ProtoField.new("Trade ID", "b3.entrypoint.sbe.trade_id", ftypes.UINT32)
 b3_entrypoint_sbe.fields.trade_id_optional = ProtoField.new("Trade ID Optional", "b3.entrypoint.sbe.trade_id_optional", ftypes.UINT32)
+b3_entrypoint_sbe.fields.event_id = ProtoField.new("Event ID", "b3.entrypoint.sbe.event_id", ftypes.UINT32)
+b3_entrypoint_sbe.fields.no_related_trades = ProtoField.new("Related trades", "b3.entrypoint.sbe.no_related_trades", ftypes.UINT16)
 b3_entrypoint_sbe.fields.transact_time = ProtoField.new("Transact Time", "b3.entrypoint.sbe.transact_time", ftypes.UINT64)
 b3_entrypoint_sbe.fields.var_data = ProtoField.new("Var Data", "b3.entrypoint.sbe.var_data", ftypes.BYTES)
 b3_entrypoint_sbe.fields.version = ProtoField.new("Version", "b3.entrypoint.sbe.version", ftypes.UINT16)
@@ -997,6 +1000,34 @@ b3_entrypoint_sbe_dissect.investor_id = function(buffer, offset, packet, parent)
   end
 
   return b3_entrypoint_sbe_dissect.investor_id_fields(buffer, offset, packet, parent)
+end
+
+-- Calculate size of: Implied Event ID
+b3_entrypoint_sbe_size_of.implied_event_id = 6
+
+-- Display: Implied Event ID
+b3_entrypoint_sbe_display.implied_event_id = function(buffer, offset, size, packet, parent)
+  return ""
+end
+
+-- Dissect Fields: Investor ID
+b3_entrypoint_sbe_dissect.implied_event_id_fields = function(buffer, offset, packet, parent)
+  local index = offset
+
+  index, event_id = b3_entrypoint_sbe_dissect.event_id(buffer, index, packet, parent)
+  index, no_related_trades = b3_entrypoint_sbe_dissect.no_related_trades(buffer, index, packet, parent)
+
+  return index
+end
+
+-- Dissect: Investor ID
+b3_entrypoint_sbe_dissect.implied_event_id = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.implied_event_id
+  local range = buffer(offset, length)
+  local display = b3_entrypoint_sbe_display.implied_event_id(buffer, packet, parent)
+  parent = parent:add(b3_entrypoint_sbe.fields.implied_event_id, range, display)
+
+  return b3_entrypoint_sbe_dissect.implied_event_id_fields(buffer, offset, packet, parent)
 end
 
 -- Size: Security ID Source
@@ -2315,6 +2346,39 @@ b3_entrypoint_sbe_dissect.trade_id = function(buffer, offset, packet, parent)
   local display = b3_entrypoint_sbe_display.trade_id(value, buffer, offset, packet, parent)
 
   parent:add(b3_entrypoint_sbe.fields.trade_id, range, value, display)
+
+  return offset + length, value
+end
+
+b3_entrypoint_sbe_size_of.event_id = 4
+b3_entrypoint_sbe_display.event_id = function(value)
+  return "Event ID: "..value
+end
+
+b3_entrypoint_sbe_dissect.event_id = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.event_id
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.event_id(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.event_id, range, value, display)
+
+  return offset + length, value
+end
+
+b3_entrypoint_sbe_size_of.no_related_trades = 2
+
+b3_entrypoint_sbe_display.no_related_trades = function(value)
+  return "Related trades: "..value
+end
+
+b3_entrypoint_sbe_dissect.no_related_trades = function(buffer, offset, packet, parent)
+  local length = b3_entrypoint_sbe_size_of.no_related_trades
+  local range = buffer(offset, length)
+  local value = range:le_uint()
+  local display = b3_entrypoint_sbe_display.no_related_trades(value, buffer, offset, packet, parent)
+
+  parent:add(b3_entrypoint_sbe.fields.no_related_trades, range, value, display)
 
   return offset + length, value
 end
@@ -6452,18 +6516,15 @@ b3_entrypoint_sbe_size_of.execution_report_reject_message = function(buffer, off
 
   index = index + b3_entrypoint_sbe_size_of.crossed_indicator
 
-  if version >= 3 then
-    index = index + b3_entrypoint_sbe_size_of.received_time
+  index = index + b3_entrypoint_sbe_size_of.received_time
 
-    -- padding 3 byte
-    index = index + 3
+  index = index + 3
 
-    index = index + b3_entrypoint_sbe_size_of.ord_tag_id
+  index = index + b3_entrypoint_sbe_size_of.ord_tag_id
 
-    index = index + b3_entrypoint_sbe_size_of.investor_id
+  index = index + b3_entrypoint_sbe_size_of.investor_id
 
-    index = index + b3_entrypoint_sbe_size_of.strategy_id
-  end
+  index = index + b3_entrypoint_sbe_size_of.strategy_id
 
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
@@ -6549,18 +6610,15 @@ b3_entrypoint_sbe_dissect.execution_report_reject_message_fields = function(buff
   -- Crossed Indicator: 2 Byte Unsigned Fixed Width Integer Enum with 4 values
   index, crossed_indicator = b3_entrypoint_sbe_dissect.crossed_indicator(buffer, index, packet, parent)
 
-  if version >= 3 then
-    index, received_time = b3_entrypoint_sbe_dissect.received_time(buffer, index, packet, parent)
+  index, received_time = b3_entrypoint_sbe_dissect.received_time(buffer, index, packet, parent)
 
-    -- padding 1 byte
-    index = index + 3
+  index = index + 3
 
-    index, ord_tag_id = b3_entrypoint_sbe_dissect.ord_tag_id(buffer, index, packet, parent)
+  index, ord_tag_id = b3_entrypoint_sbe_dissect.ord_tag_id(buffer, index, packet, parent)
 
-    index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
+  index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
 
-    index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
-  end
+  index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
 
   -- Desk ID: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
@@ -6782,20 +6840,26 @@ b3_entrypoint_sbe_size_of.execution_report_trade_message = function(buffer, offs
 
   index = index + b3_entrypoint_sbe_size_of.order_qty
 
-  index = index + b3_entrypoint_sbe_size_of.trading_session_id
+  if version >= 3 then
+    index = index + b3_entrypoint_sbe_size_of.trading_session_id
 
-  index = index + b3_entrypoint_sbe_size_of.trading_session_sub_id
+    index = index + b3_entrypoint_sbe_size_of.trading_session_sub_id
 
-  index = index + b3_entrypoint_sbe_size_of.security_trading_status
+    index = index + b3_entrypoint_sbe_size_of.security_trading_status
 
-  index = index + b3_entrypoint_sbe_size_of.cross_type
+    index = index + b3_entrypoint_sbe_size_of.cross_type
 
-  index = index + b3_entrypoint_sbe_size_of.cross_prioritization
+    index = index + b3_entrypoint_sbe_size_of.cross_prioritization
 
-  -- Padding
-  index = index + 1
+    -- Padding
+    index = index + 1
 
-  index = index + b3_entrypoint_sbe_size_of.strategy_id
+    index = index + b3_entrypoint_sbe_size_of.strategy_id
+  end
+
+  if version >= 4 then
+    index = index + b3_entrypoint_sbe_size_of.implied_event_id
+  end
 
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
@@ -6897,26 +6961,32 @@ b3_entrypoint_sbe_dissect.execution_report_trade_message_fields = function(buffe
   -- Order Qty: 8 Byte Unsigned Fixed Width Integer
   index, order_qty = b3_entrypoint_sbe_dissect.order_qty(buffer, index, packet, parent)
 
-  -- Trading Session ID: 1 Byte Ascii String Enum with 3 values
-  index, trading_session_id = b3_entrypoint_sbe_dissect.trading_session_id(buffer, index, packet, parent)
+  if version >= 3 then
+    -- Trading Session ID: 1 Byte Ascii String Enum with 3 values
+    index, trading_session_id = b3_entrypoint_sbe_dissect.trading_session_id(buffer, index, packet, parent)
 
-  -- Trading Session Sub ID: 1 Byte Ascii String Enum with 3 values
-  index, trading_session_sub_id = b3_entrypoint_sbe_dissect.trading_session_sub_id(buffer, index, packet, parent)
+    -- Trading Session Sub ID: 1 Byte Ascii String Enum with 3 values
+    index, trading_session_sub_id = b3_entrypoint_sbe_dissect.trading_session_sub_id(buffer, index, packet, parent)
 
-  -- Security Trading Status: 1 Byte Ascii String Enum with 4 values
-  index, security_trading_status = b3_entrypoint_sbe_dissect.security_trading_status(buffer, index, packet, parent)
+    -- Security Trading Status: 1 Byte Ascii String Enum with 4 values
+    index, security_trading_status = b3_entrypoint_sbe_dissect.security_trading_status(buffer, index, packet, parent)
 
-  -- Cross Type: 1 Byte Ascii String Enum with 3 values
-  index, cross_type = b3_entrypoint_sbe_dissect.cross_type(buffer, index, packet, parent)
+    -- Cross Type: 1 Byte Ascii String Enum with 3 values
+    index, cross_type = b3_entrypoint_sbe_dissect.cross_type(buffer, index, packet, parent)
 
-  -- Cross Prioritization: 1 Byte Ascii String Enum with 3 values
-  index, cross_prioritization = b3_entrypoint_sbe_dissect.cross_prioritization(buffer, index, packet, parent)
+    -- Cross Prioritization: 1 Byte Ascii String Enum with 3 values
+    index, cross_prioritization = b3_entrypoint_sbe_dissect.cross_prioritization(buffer, index, packet, parent)
 
-  -- Padding
-  index = index + 1
+    -- Padding
+    index = index + 1
 
-  -- Strategy ID: 4 Byte Unsigned Fixed Width Integer
-  index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+    -- Strategy ID: 4 Byte Unsigned Fixed Width Integer
+    index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+  end
+
+  if version >= 4 then
+    index, implied_event_id = b3_entrypoint_sbe_dissect.implied_event_id(buffer, index, packet, parent)
+  end
 
   -- Desk ID: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
@@ -7186,8 +7256,8 @@ b3_entrypoint_sbe_size_of.execution_report_cancel_message = function(buffer, off
     index = index + b3_entrypoint_sbe_size_of.strategy_id
 
     index = index + b3_entrypoint_sbe_size_of.action_requested_from_session_id
-
   end
+
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
   index = index + b3_entrypoint_sbe_size_of.memo(buffer, offset + index)
@@ -8408,21 +8478,19 @@ b3_entrypoint_sbe_size_of.order_cancel_replace_request_message = function(buffer
 
   index = index + b3_entrypoint_sbe_size_of.security_id
 
-  index = index + b3_entrypoint_sbe_size_of.security_exchange
-
   index = index + b3_entrypoint_sbe_size_of.side
 
   index = index + b3_entrypoint_sbe_size_of.ordtype
 
-  index = index + b3_entrypoint_sbe_size_of.time_in_force_optional
+  index = index + b3_entrypoint_sbe_size_of.time_in_force
 
   index = index + b3_entrypoint_sbe_size_of.routing_instruction
 
   index = index + b3_entrypoint_sbe_size_of.order_qty
 
-  index = index + b3_entrypoint_sbe_size_of.price_optional
+  index = index + b3_entrypoint_sbe_size_of.price
 
-  index = index + b3_entrypoint_sbe_size_of.order_id_optional
+  index = index + b3_entrypoint_sbe_size_of.order_id
 
   index = index + b3_entrypoint_sbe_size_of.origclordid
 
@@ -8432,7 +8500,7 @@ b3_entrypoint_sbe_size_of.order_cancel_replace_request_message = function(buffer
 
   index = index + b3_entrypoint_sbe_size_of.max_floor
 
-  index = index + b3_entrypoint_sbe_size_of.executing_trader_optional
+  index = index + b3_entrypoint_sbe_size_of.executing_trader
 
   index = index + b3_entrypoint_sbe_size_of.account_type
 
@@ -8442,7 +8510,9 @@ b3_entrypoint_sbe_size_of.order_cancel_replace_request_message = function(buffer
 
   index = index + b3_entrypoint_sbe_size_of.investor_id
 
-  index = index + b3_entrypoint_sbe_size_of.strategy_id
+  if version >= 3 then
+    index = index + b3_entrypoint_sbe_size_of.strategy_id
+  end
 
   index = index + b3_entrypoint_sbe_size_of.desk_id(buffer, offset + index)
 
@@ -8487,9 +8557,6 @@ b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields = function
   -- Security ID: 8 Byte Unsigned Fixed Width Integer
   index, security_id = b3_entrypoint_sbe_dissect.security_id(buffer, index, packet, parent)
 
-  -- Security Exchange: 4 Byte Ascii String
-  index, security_exchange = b3_entrypoint_sbe_dissect.security_exchange(buffer, index, packet, parent)
-
   -- Side: 1 Byte Ascii String Enum with 2 values
   index, side = b3_entrypoint_sbe_dissect.side(buffer, index, packet, parent)
 
@@ -8497,7 +8564,7 @@ b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields = function
   index, ordtype = b3_entrypoint_sbe_dissect.ordtype(buffer, index, packet, parent)
 
   -- Time In Force Optional: 1 Byte Ascii String Enum with 8 values
-  index, time_in_force_optional = b3_entrypoint_sbe_dissect.time_in_force_optional(buffer, index, packet, parent)
+  index, time_in_force_optional = b3_entrypoint_sbe_dissect.time_in_force(buffer, index, packet, parent)
 
   -- Routing Instruction: 1 Byte Unsigned Fixed Width Integer Enum with 5 values
   index, routing_instruction = b3_entrypoint_sbe_dissect.routing_instruction(buffer, index, packet, parent)
@@ -8506,10 +8573,10 @@ b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields = function
   index, order_qty = b3_entrypoint_sbe_dissect.order_qty(buffer, index, packet, parent)
 
   -- Price Optional: 8 Byte Signed Fixed Width Integer Nullable
-  index, price_optional = b3_entrypoint_sbe_dissect.price_optional(buffer, index, packet, parent)
+  index, price_optional = b3_entrypoint_sbe_dissect.price(buffer, index, packet, parent)
 
   -- Order ID Optional: 8 Byte Unsigned Fixed Width Integer
-  index, order_id_optional = b3_entrypoint_sbe_dissect.order_id_optional(buffer, index, packet, parent)
+  index, order_id_optional = b3_entrypoint_sbe_dissect.order_id(buffer, index, packet, parent)
 
   -- OrigClOrdId: 8 Byte Unsigned Fixed Width Integer
   index, origclordid = b3_entrypoint_sbe_dissect.origclordid(buffer, index, packet, parent)
@@ -8524,7 +8591,7 @@ b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields = function
   index, max_floor = b3_entrypoint_sbe_dissect.max_floor(buffer, index, packet, parent)
 
   -- Executing Trader Optional: 5 Byte Ascii String
-  index, executing_trader_optional = b3_entrypoint_sbe_dissect.executing_trader_optional(buffer, index, packet, parent)
+  index, executing_trader_optional = b3_entrypoint_sbe_dissect.executing_trader(buffer, index, packet, parent)
 
   -- Account Type: 1 Byte Unsigned Fixed Width Integer Enum with 3 values
   index, account_type = b3_entrypoint_sbe_dissect.account_type(buffer, index, packet, parent)
@@ -8538,8 +8605,10 @@ b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields = function
   -- Investor ID: 2 Byte (Prefix) + 2 (Padding) + 6 Byte (Document)
   index, investor_id = b3_entrypoint_sbe_dissect.investor_id(buffer, index, packet, parent)
 
-  -- Strategy ID: 4 Byte Unsigned Fixed Width Integer
-  index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+  if version >= 3 then
+    -- Strategy ID: 4 Byte Unsigned Fixed Width Integer
+    index, strategy_id = b3_entrypoint_sbe_dissect.strategy_id(buffer, index, packet, parent)
+  end
 
   -- Memo: 1 Byte (Length) + N Bytes
   index, desk_id = b3_entrypoint_sbe_dissect.desk_id(buffer, index, packet, parent)
@@ -8552,13 +8621,10 @@ end
 
 -- Dissect: Order Cancel Replace Request Message
 b3_entrypoint_sbe_dissect.order_cancel_replace_request_message = function(buffer, offset, packet, parent)
-  -- Optionally add struct element to protocol tree
-  if show.order_cancel_replace_request_message then
-    local length = b3_entrypoint_sbe_size_of.order_cancel_replace_request_message(buffer, offset)
-    local range = buffer(offset, length)
-    local display = b3_entrypoint_sbe_display.order_cancel_replace_request_message(buffer, packet, parent)
-    parent = parent:add(b3_entrypoint_sbe.fields.order_cancel_replace_request_message, range, display)
-  end
+  local length = b3_entrypoint_sbe_size_of.order_cancel_replace_request_message(buffer, offset)
+  local range = buffer(offset, length)
+  local display = b3_entrypoint_sbe_display.order_cancel_replace_request_message(buffer, packet, parent)
+  parent = parent:add(b3_entrypoint_sbe.fields.order_cancel_replace_request_message, range, display)
 
   return b3_entrypoint_sbe_dissect.order_cancel_replace_request_message_fields(buffer, offset, packet, parent)
 end
