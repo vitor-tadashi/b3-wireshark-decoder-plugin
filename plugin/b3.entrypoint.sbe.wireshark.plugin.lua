@@ -28,7 +28,7 @@
 -----------------------------------------------------------------------
 
 -- B3 Equities BinaryEntryPoint Sbe 8.0 Protocol
-local b3_entrypoint_sbe = Proto("b3.entrypoint.sbe", "B3 S.A. – Brasil, Bolsa, Balcão - Entrypoint SBE v8.1.1")
+local b3_entrypoint_sbe = Proto("b3.entrypoint.sbe", "B3 S.A. – Brasil, Bolsa, Balcão - Entrypoint SBE v8.2.3")
 
 -- Component Tables
 local show = {}
